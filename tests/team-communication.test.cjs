@@ -25,6 +25,7 @@ afterEach(() => {
 })
 
 function crew({ replies = [], settings = { reply: 'everyone', maxTurns: 6 } } = {}) {
+  forgetDirectory()
   active = fakeGateway({ replies })
   roster([bots.kacy, bots.scout])
 

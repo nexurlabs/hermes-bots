@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Team awareness: one short, plain-text picture of the whole team that every bot gets with its
  * turns (1:1 and group), and that the Team view shows the user. Hermes's own Bot Mode already
  * puts a teammate roster and the `message_agent` tool into each bot's "Bot Chat"; this adds what
@@ -306,7 +306,13 @@ export function liveLine(input: DirectoryInput): string {
     })
   const status = !input.online ? 'Teammates may be offline.' : busy.length ? `Busy right now: ${busy.join('; ')}.` : 'All teammates are idle.'
 
-  return `[Now: ${nowLine()}. ${status}] An @mention in your 1:1 chat reaches nobody. Do not write @teammate there, and do not attach logs there unless the user asked for that file. Use message_agent to reach a teammate.`
+  // message_agent exists only in a 1:1 chat; a group reaches teammates by @mention.
+  const reach =
+    input.scope === 'group'
+      ? 'In this group, reach a teammate by @mentioning them in your reply. A plain name reaches nobody.'
+      : 'An @mention in your 1:1 chat reaches nobody. Do not write @teammate there, and do not attach logs there unless the user asked for that file. Use message_agent to reach a teammate.'
+
+  return `[Now: ${nowLine()}. ${status}] ${reach}`
 }
 
 // ── per-session dedupe ─────────────────────────────────────────────────────

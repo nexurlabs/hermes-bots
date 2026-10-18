@@ -84,6 +84,9 @@ function fakeGateway({ replies = [] } = {}) {
   const pending = []
   const seen = { submits: [], methods: [], requests: [] }
   const original = gateway.request
+  // The main machine counts as online only while the link is open, as in the app.
+  const priorState = gateway.state.get()
+  gateway.state.set('open')
 
   gateway.request = async (method, params = {}) => {
     seen.methods.push(method)
@@ -124,6 +127,7 @@ function fakeGateway({ replies = [] } = {}) {
   gateway.listenersAccessible = seen
   gateway.restore = () => {
     gateway.request = original
+    gateway.state.set(priorState)
   }
 
   const runtimeOf = profile => `runtime:${profile}`
