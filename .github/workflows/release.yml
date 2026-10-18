@@ -1,0 +1,95 @@
+name: Release Windows installer
+
+# Builds the unsigned NSIS installer on Windows and attaches it to a GitHub release.
+# Runs when a version tag (v*) is pushed, or manually for an existing tag.
+# Pull requests that touch packaging build the installer as a check, without releasing.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'bun.lock'
+      - 'build.ts'
+      - 'electron/**'
+      - 'static/icon.*'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and release (e.g. v1.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      # No code-signing certificate is available: build unsigned and don't look for one.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Check tag matches package.json version
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match package.json version $version"
+            exit 1
+          fi
+      # Same install as check.yml. Electron's own postinstall is skipped; electron-builder downloads Electron itself.
+      - run: npm install --ignore-scripts --package-lock=false
+      - run: npm run check
+      - run: npm test
+      - run: bun run build
+      - name: Build installer (unsigned)
+        run: npx electron-builder --win nsis --x64 --publish never
+      - name: List artifacts
+        shell: bash
+        run: ls -la dist
+      # A full artifact-storage quota must not fail the build (or block the release step below):
+      # the artifact is a convenience copy, the release asset is the real output.
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: hermes-bots-windows-installer
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest*.yml
+          retention-days: 14
+      - name: Create or update GitHub release
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          # Globs only: with nullglob a pattern that matches nothing drops out (latest.yml is only written when publishing is configured).
+          files=(dist/*.exe dist/*.exe.blockmap dist/latest*.yml)
+          if [ ${#files[@]} -eq 0 ]; then echo "::error::No installer found in dist/"; exit 1; fi
+          notes_file=.github/release-notes/$TAG.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+          elif [ -f "$notes_file" ]; then
+            gh release create "$TAG" "${files[@]}" --title "Hermes Bots $TAG" --notes-file "$notes_file" --verify-tag
+          else
+            gh release create "$TAG" "${files[@]}" --title "Hermes Bots $TAG" --generate-notes --verify-tag
+          fi

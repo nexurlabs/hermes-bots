@@ -1,0 +1,94 @@
+{
+  "name": "hermes-bots",
+  "productName": "Hermes Bots",
+  "version": "1.8.4",
+  "description": "A desktop app for chatting with a team of bots — one per Hermes Agent profile — in 1:1 chats and group chats.",
+  "author": {
+    "name": "NexurLabs",
+    "email": "nexurlabs@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/nexurlabs/hermes-bots",
+  "license": "MIT",
+  "private": true,
+  "main": "app/main.cjs",
+  "scripts": {
+    "build": "bun build.ts",
+    "start": "bun build.ts && electron app",
+    "check": "node -e \"for (const f of require('fs').readdirSync('electron').filter(f => f.endsWith('.cjs'))) require('child_process').execFileSync(process.execPath, ['--check', 'electron/' + f], { stdio: 'inherit' })\"",
+    "test": "node --test tests/*.test.cjs && npm run test:rooms && npm run test:ui",
+    "test:rooms": "npx --yes bun@1.4.2 test tests/rooms-wake.test.ts tests/rooms-cm1.test.ts tests/room-typing-ui.test.ts tests/room-typing-stream.test.ts tests/rooms-live-corrections.test.ts",
+    "test:ui": "npx --yes bun@1.4.2 test tests/reply-ui.test.ts tests/roster-working-label.test.ts",
+    "dist": "bun build.ts && electron-builder --publish never",
+    "dist:win": "bun build.ts && electron-builder --win nsis --x64 --publish never",
+    "dist:dir": "bun build.ts && electron-builder --dir --publish never"
+  },
+  "dependencies": {
+    "@nanostores/react": "^1.1.0",
+    "blobatar": "^2.0.0",
+    "highlight.js": "^11.12.0",
+    "katex": "^0.19.0",
+    "marked": "^18.1.0",
+    "nanostores": "^1.4.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3",
+    "happy-dom": "^20.14.6",
+    "typescript": "^5.6.0"
+  },
+  "build": {
+    "appId": "com.hermes.bots",
+    "productName": "Hermes Bots",
+    "copyright": "Copyright © 2026 NexurLabs",
+    "directories": {
+      "app": "app",
+      "output": "dist",
+      "buildResources": "static"
+    },
+    "files": [
+      "**/*",
+      "!node_modules{,/**/*}",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "static/icon.ico",
+      "artifactName": "Hermes-Bots-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Hermes Bots",
+      "uninstallDisplayName": "Hermes Bots",
+      "installerIcon": "static/icon.ico",
+      "uninstallerIcon": "static/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    },
+    "linux": {
+      "target": [
+        "dir"
+      ],
+      "icon": "static/icon.png",
+      "category": "Utility"
+    },
+    "publish": null
+  }
+}

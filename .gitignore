@@ -1,0 +1,6 @@
+node_modules
+/app/
+*.log
+.DS_Store
+shot.py
+dist/

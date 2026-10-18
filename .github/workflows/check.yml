@@ -1,0 +1,65 @@
+name: Desktop regression checks
+
+on:
+  push:
+    branches: [main, fix/pc-input-native-vision, feat/group-live-input]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --ignore-scripts --package-lock=false
+      - run: npm run check
+      # The .cjs suites run on node (npm test); the .ts suites run on bun.
+      # Glob instead of naming files, so a new test is never silently skipped.
+      # shell: bash so the glob expands on the windows-latest runner too, where
+      # the default PowerShell passes it to bun unexpanded.
+      - run: npm test
+      - run: npx --yes bun@1.4.2 test --isolate ./tests/*.test.ts
+        shell: bash
+      - run: npx tsc --noEmit
+      - run: npx --yes bun@1.4.2 run build
+      # Every require('./...') in the packaged app/*.cjs must resolve to a file build.ts copied.
+      - run: node --test tests/build/requires.test.cjs
+      # A full artifact-storage quota must not fail the build (or block the release step below):
+      # the artifact is a convenience copy, the release asset is the real output.
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: hermes-bots-app-${{ runner.os }}
+          path: app/
+          retention-days: 7
+
+  # Boots the built app under Electron (headless, xvfb) and fails on a crash, a missing module or a
+  # timeout. Catches packaging mistakes that unit tests can't see.
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --ignore-scripts --package-lock=false
+      - run: node node_modules/electron/install.js
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: npx --yes bun@1.4.2 run build
+      - run: xvfb-run -a node tests/build/smoke.cjs
+        env:
+          SMOKE_TIMEOUT_MS: '90000'
