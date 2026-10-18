@@ -1,0 +1,10 @@
+﻿Hermes Bots
+Copyright (c) NexurLabs. Licensed under the MIT License. See LICENSE.
+
+This product is a front end for Hermes Agent, which is developed by Nous Research
+(https://github.com/NousResearch/hermes-agent, MIT License). Hermes Bots is not affiliated
+with or endorsed by Nous Research.
+
+Third-party components:
+- noVNC (vendor/novnc): Mozilla Public License 2.0. Its license is included in vendor/novnc.
+- Other npm dependencies are listed in package.json and are used under their own licenses.

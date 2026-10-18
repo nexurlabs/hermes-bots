@@ -4,3 +4,7 @@ node_modules
 .DS_Store
 shot.py
 dist/
+.env
+.env.*
+*.pem
+*.key

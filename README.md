@@ -28,7 +28,7 @@ Hermes does the thinking. This app is the front end: roster, chats, groups, per-
 
 ## Requirements
 
-- A running Hermes Agent gateway you can reach: on this computer, at a server address, or over SSH.
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent), installed first.** Hermes Bots is a front end for it: each bot is a Hermes profile, and the app connects to a Hermes you run on this computer, on a server, or over SSH. Install Hermes with [Nous Research's instructions](https://github.com/NousResearch/hermes-agent#readme), then start the app. Hermes Bots isn't affiliated with or endorsed by Nous Research.
 - To build and run from source: [Bun](https://bun.sh) and [Electron](https://www.electronjs.org) (installed by `npm install` below).
 - Computer control uses PowerShell and `user32.dll`, so it is Windows only. Everything else is cross-platform.
 
@@ -464,11 +464,11 @@ build.ts             Bun build script → ./app (the packaged app folder)
 
 ## Contributing
 
-Issues and pull requests are welcome. Please keep the app free of personal data, and make UI strings plain and short.
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first, and report security problems privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT. See [LICENSE](LICENSE). noVNC in `vendor/novnc` is MPL-2.0; its license is included alongside it.
+MIT. See [LICENSE](LICENSE). noVNC in `vendor/novnc` is MPL-2.0; its license is included alongside it. Credits and third-party notices are in [NOTICE](NOTICE).
 
 ### Team awareness
 
