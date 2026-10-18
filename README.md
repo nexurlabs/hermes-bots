@@ -466,6 +466,18 @@ build.ts             Bun build script → ./app (the packaged app folder)
 
 Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first, and report security problems privately as described in [SECURITY.md](SECURITY.md).
 
+## Code signing policy
+
+Windows releases of Hermes Bots are signed once the project's SignPath Foundation application is approved. Until then, releases are unsigned, and the README's install steps explain what Windows will show.
+
+- **Certificate:** issued by the SignPath Foundation. Signing is done by SignPath.io.
+- **Who approves releases:** the project owner approves each release before it is signed.
+- **Roles:** maintainers write code and review pull requests. The project owner approves releases.
+- **Build:** releases are built from the public source by the GitHub Actions workflow in this repository. Only tagged commits on `main` are released.
+- **Privacy:** this program does not transfer any information to other networked systems unless the user or the person installing or operating it requests that. Hermes Bots connects only to Hermes instances the user configures.
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
 ## License
 
 MIT. See [LICENSE](LICENSE). noVNC in `vendor/novnc` is MPL-2.0; its license is included alongside it. Credits and third-party notices are in [NOTICE](NOTICE).
