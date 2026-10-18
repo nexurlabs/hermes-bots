@@ -680,7 +680,10 @@ function buildPrompt(room: Room, bot: Bot, fresh: RoomEntry[], why: Why, marks: 
   const rules = roomSettings(room).instructions
 
   return [
-    session ? teamContext(session, directoryInput(bot.name)) : '',
+    // Only this room's own members can be woken from here, so only they are offered as routes.
+    session
+      ? teamContext(session, { ...directoryInput(bot.name, 'group'), scope: 'group', groupMembers: room.members.map(member => member.name) })
+      : '',
     `[Group chat "${room.name}". You are ${bot.display} (@${bot.handle}). Members: ${members}. The user is ${$userName.get()}.]`,
     WHY_LINE[why],
     bot.lead && why !== 'lead' ? 'As the Lead, hand work to a teammate by @mentioning them when they are better placed.' : '',

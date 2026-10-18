@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Team awareness: one short, plain-text picture of the whole team that every bot gets with its
  * turns (1:1 and group), and that the Team view shows the user. Hermes's own Bot Mode already
  * puts a teammate roster and the `message_agent` tool into each bot's "Bot Chat"; this adds what
@@ -43,8 +43,15 @@ const oneLine = (text: string, max: number) => {
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
 }
 
-/** What Hermes's message_agent routes by: the profile name, with the default profile as "hermes". */
+/**
+ * What Hermes's `message_agent` routes by for a private message: the profile name, with the
+ * default profile as "hermes". This is NOT the bot's group @handle — a group addresses the
+ * default profile as `@<handle>` (e.g. "@kacy"), so the two must never be used interchangeably.
+ */
 export const targetOf = (bot: Bot) => (bot.name === 'default' ? 'hermes' : bot.name)
+
+/** What a bot writes after @ to address this bot in a group: its own handle. */
+export const groupHandleOf = (bot: Bot) => bot.handle
 
 const shortModel = (model: string) => model.split('/').pop() || model
 
@@ -87,7 +94,7 @@ export function nowLine(date = new Date()) {
 function line(member: TeamMember) {
   const { bot } = member
   const bits = [
-    `${bot.display} (@${targetOf(bot)})`,
+    `${bot.display} (@${groupHandleOf(bot)})`,
     bot.lead ? 'Lead' : '',
     member.label,
     member.model,
@@ -154,6 +161,19 @@ export interface DirectoryInput {
   appTools: boolean
   /** The team's shared folder on the Hermes host (absolute), once the app has made sure it exists. */
   sharedFolder: string
+  /**
+   * Which kind of session this block is for. Tools are session-scoped: Hermes exposes
+   * `message_agent` in a bot's own 1:1 Bot Chat, but not in a group's member session,
+   * so the directory only offers the route that actually exists here.
+   */
+  scope?: 'dm' | 'group'
+  /**
+   * Profile names of the members of the group this session is running in. Only those can be
+   * woken from here, so the actionable route list is filtered to exactly them — the scheduler
+   * only ever dispatches `roomBots(room)` — while the rest stay in the roster for awareness.
+   * Left out when the app cannot tell, which then advertises nobody as locally reachable.
+   */
+  groupMembers?: string[]
 }
 
 /** The stable part (no time, no status): what's resent only when it changes. */
@@ -163,10 +183,41 @@ export function directoryText(input: DirectoryInput): string {
   const self = members.find(m => m.bot.name === input.me)
   const others = members.filter(m => m.bot.name !== input.me)
   const myRooms = input.rooms.filter(room => room.members.some(m => m.name === input.me))
+  const inGroup = input.scope === 'group'
+  /**
+   * The scheduler only dispatches the members of this very room, so in a group only those are
+   * routable. An unknown membership claims nothing rather than advertising the whole roster.
+   */
+  const here = inGroup ? new Set(input.groupMembers || []) : null
+  const routable = others.filter(m => !here || here.has(m.bot.name))
+  const elsewhere = others.filter(m => !routable.includes(m))
+  /** Where each teammate is reached: the group handle, and the private target when it differs. */
+  const reach = (bot: Bot) => {
+    const handle = `@${groupHandleOf(bot)}`
+    const target = targetOf(bot)
+
+    if (target === groupHandleOf(bot)) {
+      return `${handle}`
+    }
+
+    return inGroup ? `${handle} (there is no private message here)` : `${handle} in a group, private target "${target}"`
+  }
+  /**
+   * A roster bot that is not in this room cannot be woken from here, whatever the roster says.
+   * Say so plainly, and point at the routes that do exist — never one that does not.
+   */
+  const outsiderLine =
+    inGroup && routable.length && elsewhere.length
+      ? `Not in this group: ${elsewhere
+          .map(m => `${m.bot.display} (@${groupHandleOf(m.bot)})`)
+          .join(', ')}. ${input.groupMembers ? 'A @mention of them here reaches nobody, and you cannot post into a group you are not a member of' : 'This session cannot confirm which group it is in, so do not promise anyone a @mention from here'}. If the work needs one of them, name that in your answer and ask ${them} to take it to them in that bot's private Bot Chat, or to add them both to a group you share — do not claim to have reached them from here.`
+      : ''
 
   const selfBits = self
     ? [
-        `You are ${self.bot.display} (@${targetOf(self.bot)})`,
+        inGroup
+          ? `You are ${self.bot.display} (@${groupHandleOf(self.bot)} here)`
+          : `You are ${self.bot.display} (@${groupHandleOf(self.bot)} in a group, private target "${targetOf(self.bot)}")`,
         self.bot.lead ? 'the Lead' : '',
         self.label ? `label "${self.label}"` : '',
         self.model ? `model ${self.model}` : '',
@@ -183,6 +234,14 @@ export function directoryText(input: DirectoryInput): string {
     `The user is ${input.user}.`,
     others.length ? 'Teammates:' : 'No teammates yet.',
     ...others.map(m => line({ ...m, status: 'idle' }).replace(/ · idle/, '')),
+    routable.length
+      ? `Reach a teammate: ${routable.map(m => `${m.bot.display} — ${reach(m.bot)}`).join('; ')}. ${inGroup ? `In this group, writing @their handle in your reply is the only way to reach them — that is what starts their turn. Writing their plain name in prose reaches nobody, so never hand work over that way: @mention them and say the concrete ask, or keep the result to yourself. message_agent is not available in a group, so if a teammate must be reached privately, tell ${them} in your answer here and it can be sent from a 1:1 chat.` : `In a group, writing @their handle is what makes them answer; writing their plain name in prose reaches nobody. For a private message outside any group, use message_agent with their private target instead.`}`
+      : inGroup && others.length
+        ? input.groupMembers
+          ? 'Nobody else is in this group, so there is no @mention route from here. Say what you found and stop; do not hand work to a teammate in prose.'
+          : 'This session cannot confirm which bots share its group, so it offers no @mention route from here. Say what you found and stop; do not hand work to a teammate in prose.'
+        : '',
+    outsiderLine,
     myRooms.length
       ? `Your groups: ${myRooms.map(room => `${room.name} (${room.members.map(m => input.bots.find(b => b.name === m.name)?.display || m.name).join(', ')})`).join('; ')}.`
       : '',
@@ -221,9 +280,15 @@ export function directoryText(input: DirectoryInput): string {
     input.appTools
       ? `To give ${them} a file they asked for (chart, image, PDF, spreadsheet…), call ${FILE_TOOL} with its full path. It shows in the chat you are answering in. Do not use it to drop logs, test output, or handoff notes into the 1:1 chat.`
       : '',
-    'Your 1:1 chat with the user is private. Teammates never see it. Writing @teammate in that chat does nothing and does not wake them.',
+    'Your 1:1 chat with the user is private: teammates never see it, so pass on only what they need.',
+    others.length && !inGroup
+      ? `To hand work to a teammate privately, call message_agent with their private target. Say one concrete ask: what to do, what you already tried, and what a reply should contain${input.sharedFolder ? ` (put the files in ${input.sharedFolder} and give the full path)` : ''}. It does not block: keep working, and the reply arrives later — a queued message is not a delivered one, so don't assume they have seen it.`
+      : '',
+    others.length && inGroup && routable.length
+      ? `If you do hand work to a teammate here, @mention them and give the task${input.sharedFolder ? `, the full path of any file you wrote in ${input.sharedFolder}, and what a reply should contain` : ' and what a reply should contain'}. A queued turn is not a finished one, so don't assume they have seen it.`
+      : '',
     others.length
-      ? `To hand work to a teammate, use message_agent with the name after their @ as the target. Say what you need, the files involved${input.sharedFolder ? ' (put them in the shared folder and give the path, do not attach the file in the 1:1)' : ''} and what you already tried. It does not block: keep working and the reply arrives later.`
+      ? `Don't trade acknowledgements with a teammate: no "thanks", "got it", or "on it" just to answer one. Hand over work or a result, not a receipt, so two bots can't ping-pong.`
       : ''
   ]
     .filter(Boolean)
@@ -266,8 +331,8 @@ export function setRoomsSource(source: () => Room[]) {
 
 export const allRooms = () => roomsSource()
 
-/** Live state the directory reads from. */
-export function directoryInput(me: string): DirectoryInput {
+/** Live state the directory reads from. `scope` decides which routes this session can offer. */
+export function directoryInput(me: string, scope: 'dm' | 'group' = 'dm'): DirectoryInput {
   return {
     me,
     bots: $allBots.get().filter(bot => !bot.meta.hidden),
@@ -283,7 +348,8 @@ export function directoryInput(me: string): DirectoryInput {
     memoryEdits: ownValue($memoryEdits.get(), me) || [],
     canSchedule: canSchedule(me),
     appTools: hasAppTools(me),
-    sharedFolder: $sharedFolder.get().ready && !hostOf(me) ? $sharedFolder.get().path : ''
+    sharedFolder: $sharedFolder.get().ready && !hostOf(me) ? $sharedFolder.get().path : '',
+    scope
   }
 }
 
