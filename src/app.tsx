@@ -9,6 +9,7 @@ import { gateway } from './lib/gateway'
 import { $rooms, loadRooms } from './lib/rooms'
 import { $bots, $panelOpen, $phase, $profiles, $selection, $toast, refreshProfiles } from './lib/store'
 import { ConnectScreen } from './ui/connect'
+import { ProviderNotice } from './ui/provider-notice'
 import { ContextMenuHost } from './ui/context-menu'
 import { Dialogs } from './ui/dialogs'
 import { Panel } from './ui/panel'
@@ -100,6 +101,7 @@ function App() {
     <>
       {phase === 'app' ? <Shell /> : <ConnectScreen />}
       <Dialogs />
+      {phase === 'app' ? <ProviderNotice /> : null}
       <Toast />
       <ContextMenuHost />
       <Lightbox />

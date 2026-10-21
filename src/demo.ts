@@ -1,3 +1,6 @@
+import { $connectError } from './lib/connection'
+import { MISSING_AGENT } from './lib/install-help'
+import { $providerNotice } from './lib/provider-notice'
 // Design preview data (#chat / #room / #connect in the URL) — never used against a real Hermes.
 import { $approvals } from './lib/approvals'
 import { seedLibrary } from './lib/attachments'
@@ -110,16 +113,26 @@ export function demo(raw: string) {
   const [view, flag = ''] = raw.split('-')
 
   if (view === 'connect') {
+    // `connect-missing` previews the "Hermes Agent isn't installed" screen.
+    if (flag === 'missing') {
+      $connectError.set(`${MISSING_AGENT}: Hermes Agent isn't installed on this computer.`)
+    }
+
     $phase.set('connect')
 
     return
   }
 
+  // `chat-provider` previews the "no AI provider" notice.
+  if (flag === 'provider') {
+    $providerNotice.set(true)
+  }
+
   $profiles.set([
-    row('default', 'Nova', { path: '/home/aj/.hermes', last_session: { id: 'x', last_active: now / 1000 - 300, preview: 'Morning! 3 PRs need review.' } }, { lead: true, description: 'Runs the team and hands work out.' }),
-    row('scout', 'Scout', { path: '/home/aj/.hermes/profiles/scout', last_session: { id: 'a', last_active: now / 1000 - 3600, preview: 'Found two competitors worth a look.' } }, { description: 'Digs up facts and sources.' }),
-    row('forge', 'Forge', { path: '/home/aj/.hermes/profiles/forge', last_session: { id: 'b', last_active: now / 1000 - 7200, preview: "Got it from Nova. I'll look after the repos." } }, { description: 'Reviews code and keeps the build green.' }),
-    row('quill', 'Quill', { path: '/home/aj/.hermes/profiles/quill', last_session: { id: 'c', last_active: now / 1000 - 9000, preview: 'Want a shorter version?' } }, { description: 'Drafts and polishes writing.' })
+    row('default', 'Nova', { path: '/home/you/.hermes', last_session: { id: 'x', last_active: now / 1000 - 300, preview: 'Morning! 3 PRs need review.' } }, { lead: true, description: 'Runs the team and hands work out.' }),
+    row('scout', 'Scout', { path: '/home/you/.hermes/profiles/scout', last_session: { id: 'a', last_active: now / 1000 - 3600, preview: 'Found two competitors worth a look.' } }, { description: 'Digs up facts and sources.' }),
+    row('forge', 'Forge', { path: '/home/you/.hermes/profiles/forge', last_session: { id: 'b', last_active: now / 1000 - 7200, preview: "Got it from Nova. I'll look after the repos." } }, { description: 'Reviews code and keeps the build green.' }),
+    row('quill', 'Quill', { path: '/home/you/.hermes/profiles/quill', last_session: { id: 'c', last_active: now / 1000 - 9000, preview: 'Want a shorter version?' } }, { description: 'Drafts and polishes writing.' })
   ])
   // Shared memory about the user lives on the default profile, next to the group list.
   const lead = $profiles.get()[0]
@@ -127,7 +140,7 @@ export function demo(raw: string) {
     ...lead.ui_meta,
     [SHARED_KEY]: {
       facts: [
-        { id: 's1', text: 'Name is Arjun. Goes by AJ.', by: '', at: now - 9 * 86_400_000 },
+        { id: 's1', text: 'Name is Sam.', by: '', at: now - 9 * 86_400_000 },
         { id: 's2', text: 'Lives in Pune, India (IST, UTC+5:30). Works 10am to 7pm.', by: 'default', at: now - 8 * 86_400_000 },
         { id: 's3', text: 'Prefers short answers with the command first, explanation after.', by: 'default', at: now - 5 * 86_400_000 },
         { id: 's4', text: 'Runs a two-person design studio. Main client is Acme (acme/web repo).', by: 'scout', at: now - 3 * 86_400_000 },
@@ -143,7 +156,7 @@ export function demo(raw: string) {
       notes: [
         'Team: Scout researches, Forge owns repos and CI, Quill writes. Hand work out with message_agent.',
         'acme/web: main is protected. PRs need one review and green checks. Release branch is release/onboarding.',
-        'Morning routine AJ likes: open PRs, failing checks, then inbox. Keep it to five bullets.',
+        'Morning routine Sam likes: open PRs, failing checks, then inbox. Keep it to five bullets.',
         'The Q3 report lives in ~/projects/reports. Numbers come from customers.csv.'
       ],
       user: [
@@ -205,7 +218,7 @@ export function demo(raw: string) {
     scout: [],
     quill: []
   })
-  seedSharedPreview('/home/aj/.hermes/team-shared', [
+  seedSharedPreview('/home/you/.hermes/team-shared', [
     { name: 'screens', dir: true, ago: 26 * 3_600_000 },
     { name: 'screens/checkout-old.png', size: 214_880, mime: 'image/png', ago: 26 * 3_600_000 },
     {
@@ -219,7 +232,7 @@ export function demo(raw: string) {
       text: '# New onboarding is here\n\nStarting Friday, new accounts get a three-step setup: name your workspace, invite your team, and start from a sample project.\n\nEvery step can be skipped, and a short checklist helps for the first few days.\n'
     },
     { name: 'customers.csv', ago: 5 * 86_400_000, mime: 'text/csv', text: 'name,plan,seats,signed_up\nAcme,team,12,2026-03-02\nGlobex,pro,4,2026-05-19\nInitech,team,9,2026-07-08\n' },
-    { name: 'release-checklist.txt', ago: 3 * 3_600_000, mime: 'text/plain', text: '[x] checks green on release/onboarding\n[x] flaky checkout.spec.ts quarantined\n[ ] launch note approved by AJ\n[ ] tag v2.4 and deploy\n' }
+    { name: 'release-checklist.txt', ago: 3 * 3_600_000, mime: 'text/plain', text: '[x] checks green on release/onboarding\n[x] flaky checkout.spec.ts quarantined\n[ ] launch note approved by Sam\n[ ] tag v2.4 and deploy\n' }
   ])
   $active.set({ id: 'c', kind: 'ssh', label: 'My Hermes server', baseUrl: 'http://127.0.0.1:5123', token: '' })
   seedPreview(
@@ -421,7 +434,7 @@ export function demo(raw: string) {
             at: now - 110_000,
             from: { kind: 'member', name: 'default' },
             via: 'dm',
-            text: "Change of plan from AJ: the onboarding launch moves to **Monday**. @Forge please hold `release/onboarding`, no merges until then. Quill's draft note is in /home/aj/.hermes/team-shared/launch-note-draft.md."
+            text: "Change of plan from Sam: the onboarding launch moves to **Monday**. @Forge please hold `release/onboarding`, no merges until then. Quill's draft note is in /home/you/.hermes/team-shared/launch-note-draft.md."
           },
           { id: '8', at: now - 95_000, from: { kind: 'member', name: 'forge' }, text: 'Holding it. Branch protection is on until Monday 9am, and I moved the deploy job too.' }
         ]
@@ -487,7 +500,7 @@ export function demo(raw: string) {
       '| :--- | :---: | ---: | --- | --- |',
       '| Freeze | Forge | done | 09:10 | Branch protection on until Monday 9am, deploy job moved |',
       '| Staging | Forge | 80% | 10:30 | Sign-up flow passes, invites still running against the seeded team |',
-      '| Note | Quill | draft | 11:00 | Two versions in the shared folder, AJ to pick one |',
+      '| Note | Quill | draft | 11:00 | Two versions in the shared folder, Sam to pick one |',
       '',
       '```ts',
       "import { createFlag } from '@acme/flags'",
@@ -903,7 +916,7 @@ export function demo(raw: string) {
       buf.forEach(b => (bin += String.fromCharCode(b)))
       return { url: 'data:audio/wav;base64,' + btoa(bin), blob: new Blob([buf], { type: 'audio/wav' }) }
     }
-    const memo = { path: '/home/aj/.hermes/team-shared/voice-memos/voice-memo-default-demo.wav', name: 'voice-memo-default-demo.wav', size: 96_044, mime: 'audio/wav', voice: true, seconds: 12 }
+    const memo = { path: '/home/you/.hermes/team-shared/voice-memos/voice-memo-default-demo.wav', name: 'voice-memo-default-demo.wav', size: 96_044, mime: 'audio/wav', voice: true, seconds: 12 }
     $demoFiles.set({ [memo.path]: tone(12).url })
     const note = tone(7)
     const att = { id: 'vn1', kind: 'file' as const, name: 'voice-note-2026-10-10T01-58-12.webm', mime: 'audio/webm', size: 41_220 }
@@ -945,10 +958,10 @@ export function demo(raw: string) {
           `<line x1="32" y1="320" x2="608" y2="320" stroke="#ddd"/></svg>`
       )
     const files = {
-      chart: { path: '/home/aj/.hermes/team-shared/signups-weekly.svg', name: 'signups-weekly.svg', size: 2_314, mime: 'image/svg+xml' },
-      pdf: { path: '/home/aj/.hermes/team-shared/Q3-growth-report.pdf', name: 'Q3-growth-report.pdf', size: 1_284_113, mime: 'application/pdf' },
-      csv: { path: '/home/aj/.hermes/team-shared/signups.csv', name: 'signups.csv', size: 18_204, mime: 'text/csv' },
-      xlsx: { path: '/home/aj/.hermes/team-shared/launch-budget.xlsx', name: 'launch-budget.xlsx', size: 48_930, mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+      chart: { path: '/home/you/.hermes/team-shared/signups-weekly.svg', name: 'signups-weekly.svg', size: 2_314, mime: 'image/svg+xml' },
+      pdf: { path: '/home/you/.hermes/team-shared/Q3-growth-report.pdf', name: 'Q3-growth-report.pdf', size: 1_284_113, mime: 'application/pdf' },
+      csv: { path: '/home/you/.hermes/team-shared/signups.csv', name: 'signups.csv', size: 18_204, mime: 'text/csv' },
+      xlsx: { path: '/home/you/.hermes/team-shared/launch-budget.xlsx', name: 'launch-budget.xlsx', size: 48_930, mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
     }
     $demoFiles.set({ [files.chart.path]: chart })
     const chat = $chats.get().default

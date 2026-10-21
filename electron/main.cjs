@@ -11,6 +11,8 @@ const crypto = require('node:crypto')
 const { spawn } = require('node:child_process')
 const localComputer = require('./local-computer.cjs')
 const guards = require('./guards.cjs')
+const { explainLocalStartError } = require('./local-start.cjs')
+const { checkKeyFile, explainKeyError } = require('./ssh-key.cjs')
 
 const children = new Set()
 let win = null
@@ -213,13 +215,27 @@ function waitForReady(child, timeoutMs) {
 ipcMain.handle('local:start', async () => {
   if (ownedLocal && (await alive(ownedLocal.baseUrl))) return ownedLocal
   const token = crypto.randomBytes(24).toString('hex')
-  const child = spawn(hermesCommand(), ['serve', '--host', '127.0.0.1', '--port', '0'], {
-    env: { ...process.env, HERMES_DASHBOARD_SESSION_TOKEN: token, PYTHONUNBUFFERED: '1' },
-    windowsHide: true
-  })
+  const command = hermesCommand()
+  let child
+  try {
+    child = spawn(command, ['serve', '--host', '127.0.0.1', '--port', '0'], {
+      env: { ...process.env, HERMES_DASHBOARD_SESSION_TOKEN: token, PYTHONUNBUFFERED: '1' },
+      windowsHide: true
+    })
+  } catch (error) {
+    dbg(`local:start: could not run ${command}: ${error && error.message}`)
+    throw explainLocalStartError(error)
+  }
   children.add(child)
   child.on('exit', () => children.delete(child))
-  const port = await waitForReady(child, 120000)
+  let port
+  try {
+    port = await waitForReady(child, 120000)
+  } catch (error) {
+    // The raw error (e.g. "spawn hermes ENOENT") goes to the log; the app gets a plain explanation.
+    dbg(`local:start: ${command} failed: ${error && error.message}`)
+    throw explainLocalStartError(error)
+  }
   ownedLocal = { baseUrl: `http://127.0.0.1:${port}`, token }
   syncThisPcMcp({ baseUrl: ownedLocal.baseUrl, hermesToken: token, cfg: null }).catch(() => {})
   return ownedLocal
@@ -356,10 +372,8 @@ function explainSsh(raw, cfg) {
   const who = targetOf(cfg)
   if (/ENOENT/.test(text) || /not recognized|cannot find/i.test(text) && /ssh/i.test(text))
     return 'The OpenSSH client was not found on this PC. Turn on "OpenSSH Client" in Windows Optional Features, then try again.'
-  if (/UNPROTECTED PRIVATE KEY|bad permissions/i.test(text))
-    return `Windows says the key file is readable by other users (${key}). Right-click it → Properties → Security and leave only your own account.`
-  if (/no such file|not accessible|Identity file/i.test(text) && /identity|key/i.test(text) && key)
-    return `The key file ${key} was not found.`
+  const keyMsg = explainKeyError(text, key)
+  if (keyMsg) return keyMsg
   if (/REMOTE HOST IDENTIFICATION HAS CHANGED/i.test(text))
     return `The VM's identity changed (new server or reinstall). Remove its old line from ${path.join(os.homedir(), '.ssh', 'known_hosts')} and try again.`
   if (/Permission denied|publickey|Too many authentication/i.test(text))
@@ -1027,7 +1041,8 @@ async function connectSsh(cfg) {
   }
 
   const keyFile = expandLocal(cfg.keyPath)
-  if (keyFile && !fs.existsSync(keyFile)) throw new Error(`The key file ${keyFile} was not found on this PC.`)
+  const keyProblem = checkKeyFile(keyFile)
+  if (keyProblem) throw new Error(keyProblem)
 
   // 1) reach the VM and log in — fails fast with a readable reason.
   step(`Reaching ${cfg.host}…`)

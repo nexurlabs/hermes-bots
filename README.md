@@ -28,9 +28,30 @@ Hermes does the thinking. This app is the front end: roster, chats, groups, per-
 
 ## Requirements
 
-- **[Hermes Agent](https://github.com/NousResearch/hermes-agent), installed first.** Hermes Bots is a front end for it: each bot is a Hermes profile, and the app connects to a Hermes you run on this computer, on a server, or over SSH. Install Hermes with [Nous Research's instructions](https://github.com/NousResearch/hermes-agent#readme), then start the app. Hermes Bots isn't affiliated with or endorsed by Nous Research.
-- To build and run from source: [Bun](https://bun.sh) and [Electron](https://www.electronjs.org) (installed by `npm install` below).
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent) v0.22.3 or newer, installed first** (the oldest version this app is tested with). Hermes Bots is a front end for it: each bot is a Hermes profile, and the app connects to a Hermes you run on this computer, on a server, or over SSH. See [Step 0](#step-0-install-hermes-agent). Hermes Bots isn't affiliated with or endorsed by Nous Research.
+- An AI provider set up in Hermes (with Hermes's own onboarding: `/login` in chat, or `hermes model` / `hermes setup`).
+- To build and run from source: [Bun](https://bun.sh) 1.4 or newer (the scripts run on Bun) and Node.js; Electron is installed by `bun install`.
 - Computer control uses PowerShell and `user32.dll`, so it is Windows only. Everything else is cross-platform.
+
+## Step 0: Install Hermes Agent
+
+Hermes Bots is the front end; [Hermes Agent](https://github.com/NousResearch/hermes-agent) does the work and must be installed first (skip this if you connect to a Hermes server or VM that already has it). These are the official one-liners from the Hermes Agent README:
+
+**Linux, macOS, WSL2:**
+
+```sh
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+iex (irm https://hermes-agent.nousresearch.com/install.ps1)
+```
+
+Then open a new terminal and check `hermes --version` (v0.22.3 or newer). More options: [installation guide](https://hermes-agent.nousresearch.com/docs/getting-started/installation). If you pick **This computer** and Hermes isn't installed, the app shows the right command for your system with a copy button and a **Retry** button.
+
+**Add an AI provider.** Hermes needs at least one AI provider before your bots can answer. The app doesn't ask for API keys; use Hermes's own onboarding: type `/login` in a chat, or run `hermes model` (or `hermes setup`) on the Hermes machine. If Hermes has no provider, the app shows a small notice saying so.
 
 ## Install on Windows
 
@@ -46,18 +67,20 @@ Hermes does the thinking. This app is the front end: roster, chats, groups, per-
 
 ## Run it
 
+Needs [Bun](https://bun.sh) (the build and test scripts run on Bun):
+
 ```sh
-npm install
-npm start        # builds into ./app and launches Electron
+bun install --frozen-lockfile
+bun run start    # builds into ./app and launches Electron
 ```
 
-To build the Windows installer yourself (on Windows): `npm run dist:win`. It writes `dist/Hermes-Bots-Setup-<version>.exe`. Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed; bump `version` in `package.json` to match the tag first.
+To build the Windows installer yourself (on Windows): `bun run dist:win`. It writes `dist/Hermes-Bots-Setup-<version>.exe`. Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed; bump `version` in `package.json` to match the tag first. Before publishing, the workflow installs the installer silently and launches the installed app as a smoke test, and it attaches `SHA256SUMS.txt`.
 
-`npm run build` only builds. The output in `./app` is a complete Electron app folder (`main.cjs`, `preload.cjs`, `renderer/`), so you can also package it with electron-builder, Electron Forge or your own packager, or drop it into an existing Electron runtime.
+`bun run build` only builds. The output in `./app` is a complete Electron app folder (`main.cjs`, `preload.cjs`, `renderer/`), so you can also package it with electron-builder, Electron Forge or your own packager, or drop it into an existing Electron runtime.
 
 ### Preview without Hermes
 
-The UI can be opened with sample data and no server. Build, then open `app/renderer/index.html` in a browser with `#chat`, `#room` or `#connect` on the end of the address (for example `…/index.html#chat`). `#chat-approval` and `#room-approval` show approval cards; `#chat-memory` and `#chat-shared` show a bot's memory and the shared memory; `#chat-routines`, `#chat-newroutine` and `#chat-brief` show routines, the new-routine form and a routine's result in the chat; `#chat-editroutine` and `#chat-editonce` show the edit form for a repeating and a one-time routine; `#chat-post` and `#room-post` show a bot posting into a group from its 1:1 chat; `#chat-folder` and `#chat-file` show the shared folder and a file preview; `#chat-rename` and `#team-rename` show a bot renaming itself when asked, and the Team view after. `#chat-markdown` and `#chat-mdstream` show every Markdown element and a reply still arriving. `#chat-pcask` shows This PC approvals. That mode is for design work: nothing is sent anywhere, and settings you change are not saved.
+The UI can be opened with sample data and no server. Build, then open `app/renderer/index.html` in a browser with `#chat`, `#room` or `#connect` on the end of the address (for example `…/index.html#chat`). `#chat-approval` and `#room-approval` show approval cards; `#chat-memory` and `#chat-shared` show a bot's memory and the shared memory; `#chat-routines`, `#chat-newroutine` and `#chat-brief` show routines, the new-routine form and a routine's result in the chat; `#chat-editroutine` and `#chat-editonce` show the edit form for a repeating and a one-time routine; `#chat-post` and `#room-post` show a bot posting into a group from its 1:1 chat; `#chat-folder` and `#chat-file` show the shared folder and a file preview; `#chat-rename` and `#team-rename` show a bot renaming itself when asked, and the Team view after. `#chat-markdown` and `#chat-mdstream` show every Markdown element and a reply still arriving. `#chat-pcask` shows This PC approvals. `#connect-missing` shows the "Hermes Agent isn't installed" screen and `#chat-provider` the "no AI provider" notice. That mode is for design work: nothing is sent anywhere, and settings you change are not saved.
 
 ## Connecting to Hermes
 
@@ -108,7 +131,7 @@ Only actual assistant answers are published; tool/system transcript rows and unr
 
 This is network-outage recovery, not a server-side group scheduler: fully closing or crashing the desktop app is outside this guarantee. It also depends on Hermes retaining the original session and allowing the backend work to continue; it cannot recover an answer that the backend never produced. Nothing in the recovery path changes the bot's profile or model configuration.
 
-Run `npm test` for desktop-control, group-scheduler and composer regression tests, and `npm run check` for Electron syntax checks. `npm run build` bundles the renderer without launching or installing the app.
+Run `bun run test` for desktop-control, group-scheduler and composer regression tests (all of them: `bun test --isolate ./tests/*.test.ts`), and `bun run check` for Electron syntax checks. `bun run build` bundles the renderer without launching or installing the app.
 
 ## Native image input
 

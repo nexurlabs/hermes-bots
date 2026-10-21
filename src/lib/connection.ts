@@ -13,6 +13,7 @@ import { warmTeam } from './team'
 import { $active, $phase, $profiles, $selection, $userName, refreshProfiles, toast, type ActiveConnection } from './store'
 // Answers bots' calls to the app's own tools (group posts, profile edits).
 import './app-tools'
+import { $providerNotice, needsProvider } from './provider-notice'
 import type { Connection } from './types'
 
 export const $saved = atom<Connection[]>([])
@@ -196,6 +197,8 @@ export async function connect(conn: Connection) {
     }
 
     $phase.set('app')
+    // No AI provider yet (fresh install): show the non-blocking /login notice.
+    void checkProvider()
     // Teammates working outside the app (message_agent / kanban workers) show as working only
     // while the backend proves their lease.
     startExternalActivity()
@@ -273,3 +276,17 @@ useEndpointResolver(
   },
   wsUrl
 )
+
+/** After connecting: show the provider notice if Hermes has no usable provider. Best effort. */
+async function checkProvider() {
+  try {
+    const res = await gateway.request<any>('model.options', { profile: 'default' }, 30_000)
+    const rows = (Array.isArray(res?.providers) ? res.providers : []).map((r: any) => ({ authenticated: r?.authenticated }))
+
+    if (needsProvider(rows)) {
+      $providerNotice.set(true)
+    }
+  } catch {
+    /* older Hermes or offline: the chat error still shows the notice */
+  }
+}

@@ -17,7 +17,7 @@ import {
 } from '../lib/attachments'
 import { answerApproval, CHOICE_LABEL, KIND_ASK, pcNoun, RECORD_LABEL, shortAction } from '../lib/approvals'
 import { compactInstruction } from '../lib/handoff'
-import { REASONING_CHOICES, reasoningLabel } from '../lib/botconfig'
+import { $botConfig, isLoaded, REASONING_CHOICES, reasoningLabel } from '../lib/botconfig'
 import { $prompts, type SendOptions } from '../lib/chat'
 import { native } from '../lib/native'
 import { isAskTool } from '../lib/ask'
@@ -1218,6 +1218,7 @@ export function Composer({
   disabled,
   mentionables,
   thinking,
+  thinkingBot,
   secretBot,
   voice,
   scope
@@ -1230,6 +1231,8 @@ export function Composer({
   mentionables?: Bot[]
   /** Offer a thinking level for the next message only. */
   thinking?: boolean
+  /** The bot whose default level the slider starts at. */
+  thinkingBot?: string
   /** 1:1 chats: the bot a key pasted here can be saved for instead of sent. */
   secretBot?: { name: string; display: string; save: (name: string, value: string) => Promise<void> }
   /** The profile whose Hermes speech settings transcribe voice notes (none: no mic). */
@@ -1501,31 +1504,7 @@ export function Composer({
         <button aria-label="Attach files" className="composer-plus" disabled={disabled} onClick={() => picker.current?.click()} title="Attach files or pictures" type="button">
           <Icon name="plus" size={17} />
         </button>
-        {thinking ? (
-          <Menu
-            align="start"
-            items={[
-              { label: 'Bot default', onSelect: () => setThink('') },
-              ...REASONING_CHOICES.filter(choice => choice.id !== 'none')
-                .slice()
-                .reverse()
-                .map(choice => ({ label: `${choice.label} thinking`, onSelect: () => setThink(choice.id) }))
-            ]}
-            trigger={
-              <button
-                aria-label="Thinking for this message"
-                className="composer-think"
-                data-on={think || undefined}
-                disabled={disabled}
-                title="How hard to think on this message"
-                type="button"
-              >
-                <Icon name="sparkle" size={15} />
-                {think ? <span>{reasoningLabel(think)}</span> : null}
-              </button>
-            }
-          />
-        ) : null}
+        {thinking ? <ThinkSlider bot={thinkingBot} disabled={disabled} onChange={setThink} value={think} /> : null}
         <textarea
           disabled={disabled}
           onChange={event => {
@@ -1767,3 +1746,48 @@ function UserVoice({ msg, scope }: { msg: ChatMsg; scope?: string }) {
 
 import { MicButton, ReadAloudButton, VoiceMemo, VoiceNote } from './voice'
 import { splitVoiceText, VOICE_NOTE_NAME } from '../lib/voice'
+
+/**
+ * Compact inline thinking-effort slider (Off … Max) for the next message only. Until moved it
+ * sits at the bot's default level and sends nothing; Escape or double-click goes back to default.
+ */
+export function ThinkSlider({ bot, value, onChange, disabled }: { bot?: string; value: string; onChange: (id: string) => void; disabled?: boolean }) {
+  const cfg = useStore($botConfig)[bot || '']
+  const [show, setShow] = useState(false)
+  const fallback = isLoaded(cfg) && cfg.reasoning ? cfg.reasoning.toLowerCase() : 'medium'
+  const id = value || fallback
+  const index = Math.max(0, REASONING_CHOICES.findIndex(choice => choice.id === id))
+  const label = `${REASONING_CHOICES[index]?.label || 'Default'}${value ? '' : ' (default)'}`
+  const max = REASONING_CHOICES.length - 1
+
+  return (
+    <div className="think-slider" data-default={value ? undefined : ''} data-show={show || undefined} title={`Thinking: ${label}`}>
+      <input
+        aria-label="Thinking effort for this message"
+        aria-valuetext={label}
+        disabled={disabled}
+        max={max}
+        min={0}
+        onBlur={() => setShow(false)}
+        onChange={event => onChange(REASONING_CHOICES[Number(event.target.value)].id)}
+        onDoubleClick={() => onChange('')}
+        onFocus={() => setShow(true)}
+        onKeyDown={event => {
+          if (event.key === 'Escape' && value) {
+            event.preventDefault()
+            onChange('')
+          }
+        }}
+        onPointerDown={() => setShow(true)}
+        onPointerUp={() => setShow(false)}
+        step={1}
+        style={{ ['--pct' as string]: `${(index / max) * 100}%` }}
+        type="range"
+        value={index}
+      />
+      <span aria-hidden className="think-tip">
+        {label}
+      </span>
+    </div>
+  )
+}

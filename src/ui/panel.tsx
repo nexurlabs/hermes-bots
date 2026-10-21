@@ -1,21 +1,19 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useState } from 'react'
 
-import { $botConfig, isLoaded, loadBotConfig, approvalLabel, appLabel, type BotConfig } from '../lib/botconfig'
+import { $botConfig, isLoaded, loadBotConfig, approvalLabel, type BotConfig } from '../lib/botconfig'
 import { $chats } from '../lib/chat'
-import { $botMemory, type BotMemory, isMemory } from '../lib/memory'
 import { $routines, isPaused, isRoutineList, loadRoutines, type Routine } from '../lib/routines'
 import { $handoff } from '../lib/handoff'
 import { $secretNames, deleteSecret, refreshSecretNames } from '../lib/secrets'
 import { $screenChip } from '../lib/screen-chip'
 import { $rooms, roomBots, roomSettings, setQuiet, setRoomMembers } from '../lib/rooms'
-import { $active, $bots, $panelOpen, $selection, saveMeta, setLead, toast } from '../lib/store'
+import { $bots, $panelOpen, $selection, saveMeta, setLead, toast } from '../lib/store'
 import type { Bot, ChatMsg, Room } from '../lib/types'
 import { native } from '../lib/native'
 import { Avatar, AvatarStack } from './avatar'
 import { $computerDemo } from '../lib/computer-demo'
 import { ComputerTab } from './computer'
-import { Switch } from './controls'
 import { openContextMenu } from './context-menu'
 import { $dialog } from './dialogs'
 import type { SettingsSection } from './bot-settings'
@@ -111,7 +109,6 @@ function Tabs<T extends string>({ tabs, value, onChange }: { tabs: [T, string][]
 }
 
 // ── bot ───────────────────────────────────────────────────────────────────
-const ratio = (items: { enabled: boolean }[]) => `${items.filter(item => item.enabled).length} of ${items.length}`
 
 interface SetupRow {
   icon: IconName
@@ -126,25 +123,13 @@ interface SetupRow {
 const shortModel = (model: string) => model.split('/').pop() || model
 
 /** One plain value per row; the details live one click away in settings. */
-function setupRows(bot: Bot, cfg: BotConfig, memory?: BotMemory, routines?: Routine[]): SetupRow[] {
+function setupRows(bot: Bot, cfg: BotConfig, routines?: Routine[]): SetupRow[] {
   const live = (routines || []).filter(r => !isPaused(r) && r.state !== 'completed').length
-  const apps = cfg.mcp.filter(item => item.enabled).map(item => appLabel(item.name))
   const model = cfg.model.model || bot.row.model || ''
-  const on = (items: { enabled: boolean }[]) => items.filter(item => item.enabled).length
 
   return [
     { icon: 'sparkle', label: 'Model', value: model ? shortModel(model) : 'Default', full: [model, cfg.model.provider && `via ${cfg.model.provider}`].filter(Boolean).join(' '), section: 'model' },
-    { icon: 'tool', label: 'Tools', value: `${on(cfg.toolsets)} on`, full: ratio(cfg.toolsets), section: 'tools' },
-    { icon: 'star', label: 'Skills', value: `${on(cfg.skills)} on`, full: ratio(cfg.skills), section: 'skills' },
-    { icon: 'plug', label: 'Apps', value: apps.length === 1 ? apps[0] : apps.length ? `${apps.length} on` : 'None', full: apps.join(', '), section: 'apps' },
     { icon: 'shield', label: 'Approvals', value: approvalLabel(cfg.approvals), full: cfg.cwd ? `Works in ${cfg.cwd}` : undefined, section: 'safety' },
-    {
-      icon: 'memory',
-      label: 'Memory',
-      value: memory ? `${memory.notes.length + memory.user.length} saved` : 'View',
-      full: memory ? `${memory.notes.length} notes, ${memory.user.length} about you` : undefined,
-      section: 'memory'
-    },
     {
       icon: 'clock',
       label: 'Routines',
@@ -197,7 +182,6 @@ function BotLabel({ bot }: { bot: Bot }) {
 
 function Setup({ bot }: { bot: Bot }) {
   const state = useStore($botConfig)[bot.name]
-  const memory = useStore($botMemory)[bot.name]
   const routines = useStore($routines)[bot.name]
 
   useEffect(() => {
@@ -215,7 +199,7 @@ function Setup({ bot }: { bot: Bot }) {
       </header>
       <div className="group-card">
         {isLoaded(state) ? (
-          setupRows(bot, state, isMemory(memory) ? memory : undefined, isRoutineList(routines) ? routines : undefined).map(row => (
+          setupRows(bot, state, isRoutineList(routines) ? routines : undefined).map(row => (
             <button className="setup-row" key={row.section} onClick={() => open(row.section)} type="button">
               <span className="tile">
                 <Icon name={row.icon} size={16} />
@@ -235,7 +219,7 @@ function Setup({ bot }: { bot: Bot }) {
             </button>
           </div>
         ) : (
-          [0, 1, 2, 3, 4].map(index => (
+          [0, 1, 2].map(index => (
             <div className="setup-row" key={index}>
               <span className="tile" />
               <span className="txt">
@@ -271,8 +255,6 @@ function BotPanel({ bot }: { bot: Bot }) {
   }, [chip, bot.name])
   const chats = useStore($chats)
   const bots = useStore($bots)
-  const active = useStore($active)
-  const machines = useStore($machines)
   const state = useStore($botConfig)[bot.name]
   const team = bot.lead ? bots.filter(b => b.name !== bot.name) : []
   const about = bot.meta.description || bot.row.description
@@ -306,37 +288,6 @@ function BotPanel({ bot }: { bot: Bot }) {
           <>
             {about ? <p className="about">{about}</p> : null}
             <Setup bot={bot} />
-            <section className="group">
-              <header>
-                <b>Role</b>
-              </header>
-              <div className="group-card">
-                <div className="role-row">
-                  <div>
-                    <b>Lead</b>
-                    <small>Answers first in group chats and hands work to teammates.</small>
-                  </div>
-                  <Switch
-                    checked={bot.lead}
-                    label="Lead"
-                    onChange={() =>
-                      void setLead(bot.lead ? null : bot.name)
-                        .then(() => toast(bot.lead ? `${bot.display} is no longer the Lead` : `${bot.display} is now the Lead`))
-                        .catch(error => toast(String(error.message || error), 'bad'))
-                    }
-                  />
-                </div>
-                <div className="setup-row">
-                  <span className="tile">
-                    <Icon name="server" size={16} />
-                  </span>
-                  <span className="txt">
-                    <b>Runs on</b>
-                  </span>
-                  <span className="end">{(hostOf(bot.name) ? machineLabel(hostOf(bot.name)) : machines.find(m => m.main)?.label || active?.label) || 'Hermes'}</span>
-                </div>
-              </div>
-            </section>
             <SecretsSection bot={bot} />
             {team.length ? (
               <section className="group">
@@ -617,4 +568,3 @@ function RoomPanel({ room }: { room: Room }) {
 
 import { duplicateBot } from './templates'
 
-import { $machines, hostOf, machineLabel } from '../lib/hosts'

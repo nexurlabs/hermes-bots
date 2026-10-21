@@ -221,7 +221,6 @@ export function BotChatView({ bot }: { bot: Bot }) {
     <section className="center" data-thread={threadRoot ? '' : undefined}>
       <MachineOffline bot={bot} />
       <TopBar
-        extra={<ModelPill bot={bot} />}
         onTitle={() => $panelOpen.set(!$panelOpen.get())}
         title={
           <>
@@ -275,6 +274,7 @@ export function BotChatView({ bot }: { bot: Bot }) {
         placeholder={`Message ${bot.display}`}
         running={state?.running}
         thinking
+        thinkingBot={bot.name}
         secretBot={{
           name: bot.name,
           display: bot.display,
@@ -534,7 +534,7 @@ export function Welcome() {
   )
 }
 
-import { ModelPill, RoomModels } from './model-picker'
+import { RoomModels } from './model-picker'
 import { $switchNotes } from '../lib/session-model'
 import { $machines, hostOf } from '../lib/hosts'
 
