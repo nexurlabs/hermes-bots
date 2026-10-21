@@ -131,10 +131,15 @@ jobs:
           files=(dist/*.exe dist/*.exe.blockmap dist/latest*.yml dist/SHA256SUMS.txt)
           if [ ${#files[@]} -eq 0 ]; then echo "::error::No installer found in dist/"; exit 1; fi
           notes_file=.github/release-notes/$TAG.md
+          # Every release page names the code signing policy, as SignPath Foundation's terms require.
+          signing=.github/release-notes/_code-signing.md
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${files[@]}" --clobber
           elif [ -f "$notes_file" ]; then
-            gh release create "$TAG" "${files[@]}" --title "NexurBots $TAG" --notes-file "$notes_file" --verify-tag
+            # A blank line first: a "---" right under text would turn that text into a heading.
+            { cat "$notes_file"; printf '\n\n'; cat "$signing"; } > "$RUNNER_TEMP/notes.md"
+            gh release create "$TAG" "${files[@]}" --title "NexurBots $TAG" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag
           else
-            gh release create "$TAG" "${files[@]}" --title "NexurBots $TAG" --generate-notes --verify-tag
+            # gh puts the generated notes after the given ones.
+            gh release create "$TAG" "${files[@]}" --title "NexurBots $TAG" --notes-file "$signing" --generate-notes --verify-tag
           fi
