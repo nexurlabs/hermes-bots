@@ -1,8 +1,10 @@
-# Hermes Bots
+# NexurBots
 
 A desktop app for talking to a team of bots. Each bot is a [Hermes Agent](https://github.com/NousResearch/hermes-agent) **profile**, so it keeps its own model, tools, skills, memory and history. Chat with one bot, or put several in a group and let them work together.
 
 Hermes does the thinking. This app is the front end: roster, chats, groups, per-bot settings, attachments and an optional "control this PC" mode.
+
+NexurBots is made by NexurLabs. Up to version 1.8.5 it was called Hermes Bots.
 
 ## What you get
 
@@ -28,7 +30,7 @@ Hermes does the thinking. This app is the front end: roster, chats, groups, per-
 
 ## Requirements
 
-- **[Hermes Agent](https://github.com/NousResearch/hermes-agent) v0.22.3 or newer, installed first** (the oldest version this app is tested with). Hermes Bots is a front end for it: each bot is a Hermes profile, and the app connects to a Hermes you run on this computer, on a server, or over SSH. See [Step 0](#step-0-install-hermes-agent). Hermes Bots isn't affiliated with or endorsed by Nous Research.
+- **[Hermes Agent](https://github.com/NousResearch/hermes-agent) v0.22.3 or newer, installed first** (the oldest version this app is tested with). NexurBots is a front end for it: each bot is a Hermes profile, and the app connects to a Hermes you run on this computer, on a server, or over SSH. See [Step 0](#step-0-install-hermes-agent). NexurBots isn't affiliated with or endorsed by Nous Research.
 - An AI provider set up in Hermes (with Hermes's own onboarding: `/login` in chat, or `hermes model` / `hermes setup`).
 - To build and run from source: [Bun](https://bun.sh) 1.4 or newer (the scripts run on Bun) and Node.js; Electron is installed by `bun install`.
 - Computer control uses PowerShell and `user32.dll`, so it is Windows only. Everything else is cross-platform.
@@ -38,16 +40,16 @@ Hermes does the thinking. This app is the front end: roster, chats, groups, per-
 One command in PowerShell installs everything:
 
 ```powershell
-irm https://raw.githubusercontent.com/nexurlabs/hermes-bots/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/nexurlabs/nexur-bots/main/install.ps1 | iex
 ```
 
-It asks whether to set up on **this PC** or a **VPS**. On this PC it installs Hermes Agent first if it's missing (the official installer from Step 0 below), then installs the latest Hermes Bots release and opens it. For a VPS it installs only the app: install Hermes on the VPS with Step 0, then add it in **Settings → Machines**. The download is checked against the release's `SHA256SUMS.txt`, and nothing is installed if it doesn't match.
+It asks whether to set up on **this PC** or a **VPS**. On this PC it installs Hermes Agent first if it's missing (the official installer from Step 0 below), then installs the latest NexurBots release and opens it. For a VPS it installs only the app: install Hermes on the VPS with Step 0, then add it in **Settings → Machines**. The download is checked against the release's `SHA256SUMS.txt`, and nothing is installed if it doesn't match.
 
 To read the script before running it, download [`install.ps1`](install.ps1) and run `powershell -ExecutionPolicy Bypass -File .\install.ps1`. To do it all by hand instead, follow Step 0, then [Install on Windows](#install-on-windows).
 
 ## Step 0: Install Hermes Agent
 
-Hermes Bots is the front end; [Hermes Agent](https://github.com/NousResearch/hermes-agent) does the work and must be installed first (skip this if you connect to a Hermes server or VM that already has it). These are the official one-liners from the Hermes Agent README:
+NexurBots is the front end; [Hermes Agent](https://github.com/NousResearch/hermes-agent) does the work and must be installed first (skip this if you connect to a Hermes server or VM that already has it). These are the official one-liners from the Hermes Agent README:
 
 **Linux, macOS, WSL2:**
 
@@ -67,15 +69,15 @@ Then open a new terminal and check `hermes --version` (v0.22.3 or newer). More o
 
 ## Install on Windows
 
-1. Open the [latest release](https://github.com/nexurlabs/hermes-bots/releases/latest) and download `Hermes-Bots-Setup-<version>.exe`.
+1. Open the [latest release](https://github.com/nexurlabs/nexur-bots/releases/latest) and download `NexurBots-Setup-<version>.exe`.
 2. Run it. The installer isn't code-signed, so Windows SmartScreen says "Windows protected your PC". Click **More info → Run anyway**.
-3. Choose to install for just you (no admin needed, installs to `%LOCALAPPDATA%\Programs\Hermes Bots`) or for all users, and pick a folder if you want a different one. It adds Start menu and Desktop shortcuts.
+3. Choose to install for just you (no admin needed, installs to `%LOCALAPPDATA%\Programs\NexurBots`) or for all users, and pick a folder if you want a different one. It adds Start menu and Desktop shortcuts.
 
-**Updating:** download the newer `Hermes-Bots-Setup-<version>.exe` and run it. It installs over the old version in place; you don't need to uninstall first. There's no auto-update, so check Releases for new versions.
+**Updating:** download the newer `NexurBots-Setup-<version>.exe` and run it. It installs over the old version in place; you don't need to uninstall first. There's no auto-update, so check Releases for new versions.
 
-**Your settings** (connection, group chat history, window size and other app-side data) are in `%APPDATA%\Hermes Bots`, the same place as when running from source. Installing, updating and uninstalling leave them alone. Delete that folder after uninstalling to remove them too. Bots' own settings, memory and history are stored by Hermes, not here.
+**Your settings** (connection, group chat history, window size and other app-side data) are in `%APPDATA%\NexurBots`, the same place as when running from source. (Versions called Hermes Bots kept them in `%APPDATA%\Hermes Bots`; the first time 1.8.6 or newer starts, it moves that folder to the new name.) Installing, updating and uninstalling leave them alone. Delete that folder after uninstalling to remove them too. Bots' own settings, memory and history are stored by Hermes, not here.
 
-**Uninstall:** Settings → Apps → Installed apps → Hermes Bots → Uninstall.
+**Uninstall:** Settings → Apps → Installed apps → NexurBots → Uninstall.
 
 ## Run it
 
@@ -86,7 +88,7 @@ bun install --frozen-lockfile
 bun run start    # builds into ./app and launches Electron
 ```
 
-To build the Windows installer yourself (on Windows): `bun run dist:win`. It writes `dist/Hermes-Bots-Setup-<version>.exe`. Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed; bump `version` in `package.json` to match the tag first. Before publishing, the workflow installs the installer silently and launches the installed app as a smoke test, and it attaches `SHA256SUMS.txt`.
+To build the Windows installer yourself (on Windows): `bun run dist:win`. It writes `dist/NexurBots-Setup-<version>.exe`. Releases are built by `.github/workflows/release.yml` when a `v*` tag is pushed; bump `version` in `package.json` to match the tag first. Before publishing, the workflow installs the installer silently and launches the installed app as a smoke test, and it attaches `SHA256SUMS.txt`.
 
 `bun run build` only builds. The output in `./app` is a complete Electron app folder (`main.cjs`, `preload.cjs`, `renderer/`), so you can also package it with electron-builder, Electron Forge or your own packager, or drop it into an existing Electron runtime.
 
@@ -503,13 +505,13 @@ Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) fi
 
 ## Code signing policy
 
-Windows releases of Hermes Bots are signed once the project's SignPath Foundation application is approved. Until then, releases are unsigned, and the README's install steps explain what Windows will show.
+Windows releases of NexurBots are signed once the project's SignPath Foundation application is approved. Until then, releases are unsigned, and the README's install steps explain what Windows will show.
 
 - **Certificate:** issued by the SignPath Foundation. Signing is done by SignPath.io.
 - **Who approves releases:** the project owner approves each release before it is signed.
 - **Roles:** maintainers write code and review pull requests. The project owner approves releases.
 - **Build:** releases are built from the public source by the GitHub Actions workflow in this repository. Only tagged commits on `main` are released.
-- **Privacy:** this program does not transfer any information to other networked systems unless the user or the person installing or operating it requests that. Hermes Bots connects only to Hermes instances the user configures.
+- **Privacy:** this program does not transfer any information to other networked systems unless the user or the person installing or operating it requests that. NexurBots connects only to Hermes instances the user configures.
 
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 

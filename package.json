@@ -1,13 +1,13 @@
 {
   "name": "hermes-bots",
-  "productName": "Hermes Bots",
-  "version": "1.8.5",
+  "productName": "NexurBots",
+  "version": "1.8.6",
   "description": "A desktop app for chatting with a team of bots — one per Hermes Agent profile — in 1:1 chats and group chats.",
   "author": {
     "name": "NexurLabs",
     "email": "nexurlabs@users.noreply.github.com"
   },
-  "homepage": "https://github.com/nexurlabs/hermes-bots",
+  "homepage": "https://github.com/nexurlabs/nexur-bots",
   "license": "MIT",
   "private": true,
   "main": "app/main.cjs",
@@ -43,7 +43,7 @@
   },
   "build": {
     "appId": "com.hermes.bots",
-    "productName": "Hermes Bots",
+    "productName": "NexurBots",
     "copyright": "Copyright © 2026 NexurLabs",
     "directories": {
       "app": "app",
@@ -66,7 +66,7 @@
         }
       ],
       "icon": "static/icon.ico",
-      "artifactName": "Hermes-Bots-Setup-${version}.${ext}"
+      "artifactName": "NexurBots-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -75,8 +75,8 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Hermes Bots",
-      "uninstallDisplayName": "Hermes Bots",
+      "shortcutName": "NexurBots",
+      "uninstallDisplayName": "NexurBots",
       "installerIcon": "static/icon.ico",
       "uninstallerIcon": "static/icon.ico",
       "deleteAppDataOnUninstall": false,

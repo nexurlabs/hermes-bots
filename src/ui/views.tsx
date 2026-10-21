@@ -493,7 +493,7 @@ export function Welcome() {
 
   return (
     <section className="center">
-      <TopBar title={<span>Hermes Bots</span>} />
+      <TopBar title={<span>NexurBots</span>} />
       <div className="hello welcome">
         {bots.length ? (
           <>

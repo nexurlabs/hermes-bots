@@ -1,6 +1,6 @@
-﻿# Contributing to Hermes Bots
+﻿# Contributing to NexurBots
 
-Thanks for helping. Hermes Bots is a desktop app that talks to [Hermes Agent](https://github.com/NousResearch/hermes-agent). Please start there if you're new to Hermes.
+Thanks for helping. NexurBots is a desktop app that talks to [Hermes Agent](https://github.com/NousResearch/hermes-agent). Please start there if you're new to Hermes.
 
 ## Before you start
 

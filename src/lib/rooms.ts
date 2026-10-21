@@ -1057,7 +1057,7 @@ export function postFromBot(member: string, group: string, text: string, replyTo
   const wanted = groupKey(group)
 
   if (!bot) {
-    return { ok: false, text: 'This bot is not in the Hermes Bots app.' }
+    return { ok: false, text: 'This bot is not in the NexurBots app.' }
   }
 
   if (!body) {
@@ -1172,7 +1172,7 @@ export function renameGroupFromBot(member: string, group: string, name: string):
   const next = String(name || '').trim().replace(/\s+/g, ' ')
 
   if (!bot) {
-    return { ok: false, text: 'This bot is not in the Hermes Bots app.' }
+    return { ok: false, text: 'This bot is not in the NexurBots app.' }
   }
 
   if (!next) {

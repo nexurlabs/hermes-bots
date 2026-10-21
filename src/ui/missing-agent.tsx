@@ -19,7 +19,7 @@ export function MissingAgent({ platform, logPath, onRetry }: { platform: string;
     <div className="missing-agent" data-testid="missing-agent">
       <h2>Hermes Agent isn't installed on this computer</h2>
       <p>
-        Hermes Bots needs Hermes Agent (v{MIN_HERMES_VERSION} or newer) running on this PC. Open {shell}, paste this command and press Enter. When it
+        NexurBots needs Hermes Agent (v{MIN_HERMES_VERSION} or newer) running on this PC. Open {shell}, paste this command and press Enter. When it
         finishes, come back and press Retry.
       </p>
       <div className="install-cmd">

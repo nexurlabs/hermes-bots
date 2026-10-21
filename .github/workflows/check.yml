@@ -97,7 +97,7 @@ jobs:
         run: .github/scripts/smoke-windows-installer.sh
       - name: SHA256 of the installer
         shell: bash
-        run: cd dist && sha256sum Hermes-Bots-Setup-*.exe | tee SHA256SUMS.txt
+        run: cd dist && sha256sum NexurBots-Setup-*.exe | tee SHA256SUMS.txt
       # Convenience copy for testing a PR build; allowed to fail while artifact storage is full.
       - uses: actions/upload-artifact@v4
         continue-on-error: true

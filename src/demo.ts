@@ -876,7 +876,7 @@ export function demo(raw: string) {
           format: 'hermes-bot-template',
           version: 1,
           exportedAt: '2026-10-09T18:30:00Z',
-          app: 'Hermes Bots',
+          app: 'NexurBots',
           bot: { name: 'pr-reviewer', display: 'Reviewer', label: 'Code review', description: 'Reviews every PR on acme/web: risks, missing tests, a verdict.', shape: 'blobatar:reviewer:ghost' },
           persona: { soul: 'You review pull requests. Be specific and kind. Lead with risks.' },
           model: { provider: 'openrouter', model: 'anthropic/claude-sonnet-4.5', reasoning: 'high' },

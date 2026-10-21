@@ -226,7 +226,7 @@ export function directoryText(input: DirectoryInput): string {
     : []
 
   return [
-    '[Team directory — from the Hermes Bots app]',
+    '[Team directory — from the NexurBots app]',
     selfBits.length ? `${selfBits.join(', ')}.${self?.role ? ` Your role: ${self.role}` : ''}` : '',
     input.appTools && self
       ? `If ${them} asks you to change your name, label or description, use ${PROFILE_TOOL}, only when they ask. Your Hermes profile stays the same.`

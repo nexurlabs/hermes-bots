@@ -1,6 +1,6 @@
 ﻿---
 name: Bug report
-about: Something in Hermes Bots isn't working
+about: Something in NexurBots isn't working
 ---
 
 **What happened**

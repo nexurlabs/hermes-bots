@@ -894,7 +894,7 @@ export const $prompts = atom<PendingPrompt[]>([])
 
 gateway.onServerRequest((method, params, id) => {
   if (!['approval', 'clarify', 'sudo', 'secret', 'vault.code', 'display.install.sudo'].includes(method)) {
-    return Promise.reject(Object.assign(new Error(`${method} isn't supported in Hermes Bots`), { code: -32601 }))
+    return Promise.reject(Object.assign(new Error(`${method} isn't supported in NexurBots`), { code: -32601 }))
   }
 
   return new Promise((resolve, reject) => {
