@@ -1,6 +1,7 @@
 name: Release Windows installer
 
-# Builds the unsigned NSIS installer on Windows and attaches it to a GitHub release.
+# Builds the NSIS installer on Windows, signs it through SignPath once that is set up, and attaches it to a GitHub
+# release with a SHA-256 checksum that the one-command installer (install.ps1) checks.
 # Runs when a version tag (v*) is pushed, or manually for an existing tag.
 # Pull requests that touch packaging build the installer as a check, without releasing.
 on:
@@ -59,11 +60,46 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: bun run build
-      - name: Build installer (unsigned)
+      - name: Build installer
         run: npx electron-builder --win nsis --x64 --publish never
-      - name: List artifacts
+      # Signing runs after the build, by SignPath Foundation. It only runs once the project's SignPath setup
+      # exists (the repository variable SIGNPATH_ORGANIZATION_ID); until then the release stays unsigned.
+      - name: Upload unsigned installer for signing
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-bots-unsigned-installer
+          path: dist/Hermes-Bots-Setup-*.exe
+          retention-days: 1
+      - name: Sign installer with SignPath
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: hermes-bots
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+      - name: Put the signed installer in dist
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
         shell: bash
-        run: ls -la dist
+        run: |
+          mapfile -t signed < <(find signed -type f -name 'Hermes-Bots-Setup-*.exe')
+          if [ ${#signed[@]} -ne 1 ]; then echo "::error::Expected one signed installer, found ${#signed[@]}"; exit 1; fi
+          mv -f "${signed[0]}" dist/
+      # Written last, so the checksum is for the installer that is released, signed or not.
+      - name: Write SHA-256 checksum
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for exe in dist/Hermes-Bots-Setup-*.exe; do
+            name=$(basename "$exe")
+            (cd dist && sha256sum "$name" > "$name.sha256")
+          done
+          ls -la dist
       # A full artifact-storage quota must not fail the build (or block the release step below):
       # the artifact is a convenience copy, the release asset is the real output.
       - uses: actions/upload-artifact@v4
@@ -83,7 +119,7 @@ jobs:
         run: |
           shopt -s nullglob
           # Globs only: with nullglob a pattern that matches nothing drops out (latest.yml is only written when publishing is configured).
-          files=(dist/*.exe dist/*.exe.blockmap dist/latest*.yml)
+          files=(dist/*.exe dist/*.exe.blockmap dist/latest*.yml dist/*.sha256)
           if [ ${#files[@]} -eq 0 ]; then echo "::error::No installer found in dist/"; exit 1; fi
           notes_file=.github/release-notes/$TAG.md
           if gh release view "$TAG" >/dev/null 2>&1; then
