@@ -1,6 +1,8 @@
 name: Release Windows installer
 
-# Builds the unsigned NSIS installer on Windows and attaches it to a GitHub release.
+# Builds the NSIS installer on Windows, smoke-tests the installed app, signs the installer through SignPath once
+# that is set up, and attaches it to a GitHub release with SHA256SUMS.txt, which the one-command installer
+# (install.ps1) checks before it installs anything.
 # Runs when a version tag (v*) is pushed, or manually for an existing tag.
 # Pull requests that touch packaging build the installer as a check, without releasing.
 on:
@@ -35,7 +37,7 @@ jobs:
     timeout-minutes: 30
     env:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
-      # No code-signing certificate is available: build unsigned and don't look for one.
+      # electron-builder doesn't sign: SignPath signs after the build (below), so don't look for a certificate.
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
@@ -61,12 +63,42 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: bun run build
-      - name: Build installer (unsigned)
+      - name: Build installer
         run: npx electron-builder --win nsis --x64 --publish never
       # Install the NSIS installer silently and boot the installed app (HERMES_BOTS_SMOKE=1); no release without HERMES_BOTS_SMOKE_OK.
       - name: Smoke-test the installed app
         shell: bash
         run: .github/scripts/smoke-windows-installer.sh
+      # Signing runs after the smoke test, by SignPath Foundation. It only runs once the project's SignPath setup
+      # exists (the repository variable SIGNPATH_ORGANIZATION_ID); until then the release stays unsigned.
+      - name: Upload unsigned installer for signing
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-bots-unsigned-installer
+          path: dist/Hermes-Bots-Setup-*.exe
+          retention-days: 1
+      - name: Sign installer with SignPath
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: hermes-bots
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+      - name: Put the signed installer in dist
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: bash
+        run: |
+          mapfile -t signed < <(find signed -type f -name 'Hermes-Bots-Setup-*.exe')
+          if [ ${#signed[@]} -ne 1 ]; then echo "::error::Expected one signed installer, found ${#signed[@]}"; exit 1; fi
+          mv -f "${signed[0]}" dist/
+      # Written after signing, so the checksums are for the installer that is released, signed or not.
+      # install.ps1 won't install a download whose hash isn't in SHA256SUMS.txt.
       - name: Checksums
         shell: bash
         run: |

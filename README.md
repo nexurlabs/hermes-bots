@@ -33,6 +33,18 @@ Hermes does the thinking. This app is the front end: roster, chats, groups, per-
 - To build and run from source: [Bun](https://bun.sh) 1.4 or newer (the scripts run on Bun) and Node.js; Electron is installed by `bun install`.
 - Computer control uses PowerShell and `user32.dll`, so it is Windows only. Everything else is cross-platform.
 
+## Quick install on Windows
+
+One command in PowerShell installs everything:
+
+```powershell
+irm https://raw.githubusercontent.com/nexurlabs/hermes-bots/main/install.ps1 | iex
+```
+
+It asks whether to set up on **this PC** or a **VPS**. On this PC it installs Hermes Agent first if it's missing (the official installer from Step 0 below), then installs the latest Hermes Bots release and opens it. For a VPS it installs only the app: install Hermes on the VPS with Step 0, then add it in **Settings → Machines**. The download is checked against the release's `SHA256SUMS.txt`, and nothing is installed if it doesn't match.
+
+To read the script before running it, download [`install.ps1`](install.ps1) and run `powershell -ExecutionPolicy Bypass -File .\install.ps1`. To do it all by hand instead, follow Step 0, then [Install on Windows](#install-on-windows).
+
 ## Step 0: Install Hermes Agent
 
 Hermes Bots is the front end; [Hermes Agent](https://github.com/NousResearch/hermes-agent) does the work and must be installed first (skip this if you connect to a Hermes server or VM that already has it). These are the official one-liners from the Hermes Agent README:
