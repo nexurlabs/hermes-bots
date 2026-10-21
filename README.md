@@ -507,9 +507,11 @@ Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) fi
 
 Windows releases of NexurBots are signed once the project's SignPath Foundation application is approved. Until then, releases are unsigned, and the README's install steps explain what Windows will show.
 
-- **Certificate:** issued by the SignPath Foundation. Signing is done by SignPath.io.
-- **Who approves releases:** the project owner approves each release before it is signed.
-- **Roles:** maintainers write code and review pull requests. The project owner approves releases.
+- **Certificate:** issued by SignPath Foundation. Signing is done by SignPath.io.
+- **Team roles:**
+  - **Authors** (may change the source without further review): [@nexurlabs](https://github.com/nexurlabs) and [@rishabhiskawai](https://github.com/rishabhiskawai).
+  - **Reviewers** (review every pull request from anyone else before it is merged): [@nexurlabs](https://github.com/nexurlabs) and [@rishabhiskawai](https://github.com/rishabhiskawai).
+  - **Approvers** (approve each signing request in SignPath before a release is signed): [@nexurlabs](https://github.com/nexurlabs).
 - **Build:** releases are built from the public source by the GitHub Actions workflow in this repository. Only tagged commits on `main` are released.
 - **Privacy:** this program does not transfer any information to other networked systems unless the user or the person installing or operating it requests that. NexurBots connects only to Hermes instances the user configures.
 
