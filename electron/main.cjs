@@ -1,4 +1,4 @@
-// Hermes Bots — Electron main process.
+// NexurBots — Electron main process.
 // Owns everything the renderer can't do from a web page: finding (or
 // starting) a local Hermes backend, SSH tunnels to remote machines, REST
 // calls (CORS), the saved-connections file and native dialogs.
@@ -14,6 +14,13 @@ const localServe = require('./local-serve.cjs')
 const guards = require('./guards.cjs')
 const { explainLocalStartError } = require('./local-start.cjs')
 const { checkKeyFile, explainKeyError } = require('./ssh-key.cjs')
+const { adoptOldDataFolder, OLD_NAME } = require('./app-data.cjs')
+
+// Before anything reads settings: the data folder used to be named after Hermes Bots (see app-data.cjs).
+if (process.env.HERMES_BOTS_SMOKE !== '1') {
+  const oldData = path.join(app.getPath('appData'), OLD_NAME)
+  if (adoptOldDataFolder(app.getPath('userData'), oldData) === 'kept-old') app.setPath('userData', oldData)
+}
 
 const children = new Set()
 let win = null
@@ -944,13 +951,13 @@ localComputer.setAppToolHandler(
   (profile, name, args) =>
     new Promise(resolve => {
       if (!win || win.isDestroyed()) {
-        resolve({ ok: false, text: 'The Hermes Bots app window is closed, so nothing was posted. Ask the user to open the app.' })
+        resolve({ ok: false, text: 'The NexurBots app window is closed, so nothing was posted. Ask the user to open the app.' })
         return
       }
       const id = ++appToolSeq
       const timer = setTimeout(() => {
         appToolWaits.delete(id)
-        resolve({ ok: false, text: "The Hermes Bots app didn't answer in time, so the post may not have gone through." })
+        resolve({ ok: false, text: "The NexurBots app didn't answer in time, so the post may not have gone through." })
       }, 30000)
       appToolWaits.set(id, answer => {
         clearTimeout(timer)
@@ -1200,7 +1207,7 @@ function createWindow() {
     minWidth: 860,
     minHeight: 560,
     backgroundColor: '#070707',
-    title: 'Hermes Bots',
+    title: 'NexurBots',
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: '#00000000', symbolColor: '#d6d6d6', height: 48 },
     icon: path.join(__dirname, 'icon.png'),
@@ -1234,22 +1241,32 @@ function createWindow() {
 }
 
 // ── Desktop shortcut (Windows) ────────────────────────────────────────────
-// Creates "Hermes Bots.lnk" on the Desktop the first time the app runs. It is
+// Creates "NexurBots.lnk" on the Desktop the first time the app runs. It is
 // tagged with the same AppUserModelID as the window, so launching from it and
-// pinning it to the taskbar both group under one "Hermes Bots" button.
+// pinning it to the taskbar both group under one "NexurBots" button.
 function ensureDesktopShortcut() {
   if (process.platform !== 'win32') return
   try {
     const settings = readSettings()
     if (settings.desktopShortcut === process.execPath) return
-    const lnk = path.join(app.getPath('desktop'), 'Hermes Bots.lnk')
+    // The shortcut used to be "Hermes Bots.lnk". Remove it only if it is ours: it opens this app, or an
+    // old app file that is gone (the upgrade uninstalled the previous version).
+    const oldLnk = path.join(app.getPath('desktop'), 'Hermes Bots.lnk')
+    if (fs.existsSync(oldLnk)) {
+      let target = ''
+      try {
+        target = shell.readShortcutLink(oldLnk).target || ''
+      } catch {}
+      if (target && (target === process.execPath || (/Hermes Bots\.exe$/i.test(target) && !fs.existsSync(target)))) fs.unlinkSync(oldLnk)
+    }
+    const lnk = path.join(app.getPath('desktop'), 'NexurBots.lnk')
     const options = {
       target: process.execPath,
       cwd: path.dirname(process.execPath),
       icon: process.execPath,
       iconIndex: 0,
       appUserModelId: 'com.hermes.bots',
-      description: 'Hermes Bots'
+      description: 'NexurBots'
     }
     const made = shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'replace' : 'create', options)
     if (made) writeSettings({ ...readSettings(), desktopShortcut: process.execPath })

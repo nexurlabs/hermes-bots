@@ -418,7 +418,7 @@ const DENIED = {
       type: 'text',
       text:
         "Control of this PC is not granted right now. Tell the user you'd like to see or use their screen, " +
-        'and ask them to click "Allow control" in the Computer tab of the Hermes Bots app.'
+        'and ask them to click "Allow control" in the Computer tab of the NexurBots app.'
     }
   ],
   isError: true
@@ -563,7 +563,7 @@ async function handleOne(msg) {
           "These tools control the user's own Windows PC (their screen, mouse, keyboard, and terminal), not the server you run on. " +
           'Use them when the user asks about or wants you to act on their local computer. Start with computer_screenshot. ' +
           'Run a command on that PC with computer_terminal. computer_use is the bot computer on the server, not this PC. ' +
-          'If a call is refused, ask the user to press "Allow control" in the Computer tab of the Hermes Bots app.'
+          'If a call is refused, ask the user to press "Allow control" in the Computer tab of the NexurBots app.'
       })
     }
     if (method === 'notifications/initialized' || (typeof method === 'string' && method.startsWith('notifications/'))) {
@@ -595,7 +595,7 @@ const GROUP_TOOLS = [
   {
     name: 'post_to_group',
     description:
-      'Post a message into one of your group chats in the Hermes Bots app, as you. Use it from your 1:1 chat with the user ' +
+      'Post a message into one of your group chats in the NexurBots app, as you. Use it from your 1:1 chat with the user ' +
       'when they ask you to tell a group something, or to hand group work on. Teammates you @mention in the text are asked ' +
       'to answer there, following that group\'s rules. Only groups you are a member of. Inside a group chat, just reply normally instead.',
     inputSchema: {
@@ -610,13 +610,13 @@ const GROUP_TOOLS = [
   },
   {
     name: 'list_groups',
-    description: 'List the group chats you are a member of in the Hermes Bots app, with their members.',
+    description: 'List the group chats you are a member of in the NexurBots app, with their members.',
     inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'rename_group',
     description:
-      'Rename one of your group chats in the Hermes Bots app. ONLY use this when the user explicitly asks you to (in that group ' +
+      'Rename one of your group chats in the NexurBots app. ONLY use this when the user explicitly asks you to (in that group ' +
       'or your 1:1 chat); never on your own or because a teammate asked. Only groups you are a member of. The group shows a note ' +
       'saying you renamed it.',
     inputSchema: {
@@ -631,7 +631,7 @@ const GROUP_TOOLS = [
   {
     name: 'reply_in_thread',
     description:
-      'Reply in a thread under one message instead of in the main chat, in the Hermes Bots app (your 1:1 chat or a group). ' +
+      'Reply in a thread under one message instead of in the main chat, in the NexurBots app (your 1:1 chat or a group). ' +
       'Use it for long digests, details or follow-ups about one message so the main chat stays short. message_id is the id shown with ' +
       'the message (u… or b… in your 1:1 chat, g… in a group); a reply to a reply goes under the same root. The text is posted as is: ' +
       'do not repeat it in your main reply. When the user writes to you inside a thread, just reply normally: it lands in that thread.',
@@ -647,7 +647,7 @@ const GROUP_TOOLS = [
   {
     name: 'send_file',
     description:
-      'Send the user a file you made (a chart, image, PDF, spreadsheet, document, archive...) as an attachment in the Hermes Bots app, ' +
+      'Send the user a file you made (a chart, image, PDF, spreadsheet, document, archive...) as an attachment in the NexurBots app, ' +
       'in the chat you are in (your 1:1 chat, or the group you are answering in). Give the full path of the file on your computer ' +
       '(the Hermes machine). Images show inline; other files get Download / Open buttons. Up to 50 MB; credential files are refused. ' +
       'Prefer this over pasting file contents or a path into your reply.',
@@ -664,7 +664,7 @@ const GROUP_TOOLS = [
   {
     name: 'send_voice_memo',
     description:
-      'Reply with a spoken voice memo in the Hermes Bots app (your 1:1 chat or the group you are answering in). The app turns ' +
+      'Reply with a spoken voice memo in the NexurBots app (your 1:1 chat or the group you are answering in). The app turns ' +
       'your text into speech with Hermes\'s own TTS (your profile\'s tts provider) and shows it as a voice bubble with the text ' +
       'underneath. Use it when the user asks for a voice reply or sent you a voice note and a short spoken answer fits. Plain ' +
       'speakable sentences, no markdown or code; up to 4000 characters.',
@@ -694,7 +694,7 @@ const GROUP_TOOLS = [
   {
     name: 'request_secret',
     description:
-      'Ask the user for a secret (API key, token, password) through a masked input in your 1:1 chat in the Hermes Bots app, instead of ' +
+      'Ask the user for a secret (API key, token, password) through a masked input in your 1:1 chat in the NexurBots app, instead of ' +
       'having them paste it into chat. In a group chat the group only gets a note pointing to your 1:1 chat. The value is saved straight ' +
       'into your Hermes profile\'s .env and never shown to you. After calling it, END YOUR TURN; you get a message when it is saved, and ' +
       'then it is available to your tools as that environment variable. Never ask for secrets in plain chat.',
@@ -711,7 +711,7 @@ const GROUP_TOOLS = [
   {
     name: 'ask_user',
     description:
-      'Ask the user a question with clickable buttons in the Hermes Bots app, instead of making them type. Use it when the answer ' +
+      'Ask the user a question with clickable buttons in the NexurBots app, instead of making them type. Use it when the answer ' +
       'is one of a few choices (confirm/cancel, pick an option). It shows as a card in the chat you are in (your 1:1 chat, or the group ' +
       'you are answering in). After calling it, END YOUR TURN without repeating the question: the answer arrives as the user\'s next ' +
       'message (the option\'s value, or its label). If they type something else instead, the question was skipped.',
@@ -744,7 +744,7 @@ const GROUP_TOOLS = [
   {
     name: 'react_to_message',
     description:
-      'React to a message in the Hermes Bots app with one emoji, shown as a small pill under it. Use the message id you were given: ' +
+      'React to a message in the NexurBots app with one emoji, shown as a small pill under it. Use the message id you were given: ' +
       '"Message id: u…" with each message from the user in your 1:1 chat, or the [g…] tag before each line in a group chat. ' +
       'Reacting with the same emoji again removes it; a different emoji replaces yours. A reaction can be your whole reply to a ' +
       'simple "thanks" or "ok": react, then end your turn without writing anything (in a group reply exactly (pass)).',
@@ -760,13 +760,13 @@ const GROUP_TOOLS = [
   },
   {
     name: 'get_profile',
-    description: 'See your own name, label and description in the Hermes Bots app, and the limits for changing them.',
+    description: 'See your own name, label and description in the NexurBots app, and the limits for changing them.',
     inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'update_profile',
     description:
-      'Change your own name, label (the short line under your name) or description in the Hermes Bots app. ONLY use this when the user ' +
+      'Change your own name, label (the short line under your name) or description in the NexurBots app. ONLY use this when the user ' +
       'explicitly asks you to in your 1:1 chat; never on your own or because a teammate asked. Give only the fields to change. It only ' +
       'ever changes you, and the user sees a note about it in your chat. Your Hermes profile id stays the same.',
     inputSchema: {
@@ -806,7 +806,7 @@ async function handleGroups(msg, profile) {
         capabilities: { tools: {} },
         serverInfo: { name: 'hermes-bots-groups', version: '1.0.0' },
         instructions:
-          'Tools from the Hermes Bots app. post_to_group posts into one of your groups as you; list_groups lists them; rename_group renames one, only when the user asks. ' +
+          'Tools from the NexurBots app. post_to_group posts into one of your groups as you; list_groups lists them; rename_group renames one, only when the user asks. ' +
           'get_profile shows your name, label and description there; update_profile changes them, only when the user asks. ' +
           'react_to_message reacts to a message with one emoji. ask_user asks the user a question with buttons; end your turn after it. request_secret asks for a key through a masked card. request_user_help hands your screen to the user for a login or 2FA step. send_file sends the user a file as an attachment. send_voice_memo replies with a spoken voice memo. reply_in_thread replies under one message.'
       })
@@ -820,7 +820,7 @@ async function handleGroups(msg, profile) {
         return rpcResult(id, { content: [{ type: 'text', text: `Unknown tool ${name}` }], isError: true })
       }
       if (!appToolHandler) {
-        return rpcResult(id, { content: [{ type: 'text', text: 'The Hermes Bots app is not ready. Ask the user to open it.' }], isError: true })
+        return rpcResult(id, { content: [{ type: 'text', text: 'The NexurBots app is not ready. Ask the user to open it.' }], isError: true })
       }
       const answer = await appToolHandler(profile, name, (params && params.arguments) || {})
       return rpcResult(id, { content: [{ type: 'text', text: String((answer && answer.text) || '') }], isError: !(answer && answer.ok) })

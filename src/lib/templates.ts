@@ -448,7 +448,7 @@ export async function buildTemplate(name: string, opts: ExportOptions): Promise<
     format: TEMPLATE_FORMAT,
     version: TEMPLATE_VERSION,
     exportedAt: new Date().toISOString(),
-    app: 'Hermes Bots',
+    app: 'NexurBots',
     bot: {
       name,
       display: bot.display,
@@ -504,8 +504,8 @@ export function parseTemplate(text: string): BotTemplate | string {
     return "That file isn't valid JSON."
   }
 
-  if (raw?.format !== TEMPLATE_FORMAT) return "That isn't a Hermes Bots template (.hermesbot.json)."
-  if (typeof raw.version !== 'number' || raw.version > TEMPLATE_VERSION) return `This template is version ${raw.version}; this app reads up to version ${TEMPLATE_VERSION}. Update Hermes Bots.`
+  if (raw?.format !== TEMPLATE_FORMAT) return "That isn't a NexurBots template (.hermesbot.json)."
+  if (typeof raw.version !== 'number' || raw.version > TEMPLATE_VERSION) return `This template is version ${raw.version}; this app reads up to version ${TEMPLATE_VERSION}. Update NexurBots.`
   if (!raw.bot || typeof raw.bot.display !== 'string') return 'The template has no bot in it.'
 
   const t: BotTemplate = {

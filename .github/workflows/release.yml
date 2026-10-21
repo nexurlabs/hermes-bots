@@ -77,7 +77,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hermes-bots-unsigned-installer
-          path: dist/Hermes-Bots-Setup-*.exe
+          path: dist/NexurBots-Setup-*.exe
           retention-days: 1
       - name: Sign installer with SignPath
         if: vars.SIGNPATH_ORGANIZATION_ID != ''
@@ -85,7 +85,7 @@ jobs:
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: hermes-bots
+          project-slug: nexur-bots
           signing-policy-slug: release-signing
           github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
           wait-for-completion: true
@@ -94,7 +94,7 @@ jobs:
         if: vars.SIGNPATH_ORGANIZATION_ID != ''
         shell: bash
         run: |
-          mapfile -t signed < <(find signed -type f -name 'Hermes-Bots-Setup-*.exe')
+          mapfile -t signed < <(find signed -type f -name 'NexurBots-Setup-*.exe')
           if [ ${#signed[@]} -ne 1 ]; then echo "::error::Expected one signed installer, found ${#signed[@]}"; exit 1; fi
           mv -f "${signed[0]}" dist/
       # Written after signing, so the checksums are for the installer that is released, signed or not.
@@ -103,7 +103,7 @@ jobs:
         shell: bash
         run: |
           cd dist
-          sha256sum Hermes-Bots-Setup-*.exe > SHA256SUMS.txt
+          sha256sum NexurBots-Setup-*.exe > SHA256SUMS.txt
           cat SHA256SUMS.txt
       - name: List artifacts
         shell: bash
@@ -134,7 +134,7 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${files[@]}" --clobber
           elif [ -f "$notes_file" ]; then
-            gh release create "$TAG" "${files[@]}" --title "Hermes Bots $TAG" --notes-file "$notes_file" --verify-tag
+            gh release create "$TAG" "${files[@]}" --title "NexurBots $TAG" --notes-file "$notes_file" --verify-tag
           else
-            gh release create "$TAG" "${files[@]}" --title "Hermes Bots $TAG" --generate-notes --verify-tag
+            gh release create "$TAG" "${files[@]}" --title "NexurBots $TAG" --generate-notes --verify-tag
           fi

@@ -8,7 +8,7 @@ Include what you found, the version (from `package.json`, or the release you ins
 
 ## Scope
 
-In scope: the Hermes Bots app and the local servers it runs for Hermes (the PC control server, the group tools server and the event listener).
+In scope: the NexurBots app and the local servers it runs for Hermes (the PC control server, the group tools server and the event listener).
 
 Out of scope: Hermes Agent itself. Report those issues to [Nous Research](https://github.com/NousResearch/hermes-agent/security).
 

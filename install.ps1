@@ -1,9 +1,10 @@
-# Hermes Bots, one command. Run this in PowerShell:
+# NexurBots, one command. Run this in PowerShell:
 #
-#   irm https://raw.githubusercontent.com/nexurlabs/hermes-bots/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/nexurlabs/nexur-bots/main/install.ps1 | iex
 #
-# Installs the latest Hermes Bots release, and Nous Research's Hermes first if it isn't on this PC yet.
-# Switches, all optional, set as environment variables so they also work with `irm | iex`:
+# Installs the latest NexurBots release, and Nous Research's Hermes first if it isn't on this PC yet.
+# Switches, all optional, set as environment variables so they also work with `irm | iex` (they keep the
+# names from before the app was renamed from Hermes Bots):
 #   HERMES_BOTS_TARGET=pc|vps      skip the question: pc = this computer, vps = the app only
 #   HERMES_BOTS_INSTALLER=<file>   install this installer file instead of the latest release (not checksummed)
 #   HERMES_BOTS_DRY_RUN=1          print what would happen and change nothing
@@ -14,10 +15,11 @@ $ErrorActionPreference = 'Stop'
 # The progress bar makes Invoke-WebRequest very slow on a download this size.
 $ProgressPreference = 'SilentlyContinue'
 
-$Repo = 'nexurlabs/hermes-bots'
+$Repo = 'nexurlabs/nexur-bots'
 $HermesInstallerUrl = 'https://hermes-agent.nousresearch.com/install.ps1'
-$AppDir = Join-Path $env:LOCALAPPDATA 'Programs\Hermes Bots'
-$AppExe = Join-Path $AppDir 'Hermes Bots.exe'
+# Releases up to 1.8.5 were named Hermes Bots; both names are accepted until every release is NexurBots.
+$InstallerPattern = '^(NexurBots|Hermes-Bots)-Setup-.+\.exe$'
+$AppNames = @('NexurBots', 'Hermes Bots')
 # The same file the app starts Hermes from (electron/main.cjs, hermesCommand).
 $HermesExe = Join-Path $env:LOCALAPPDATA 'hermes\bin\hermes.exe'
 $DryRun = $env:HERMES_BOTS_DRY_RUN -eq '1'
@@ -47,9 +49,9 @@ function Test-Checksum($File, $Name, $SumsText) {
 }
 
 function Get-LatestInstaller {
-  Step 'Looking up the latest Hermes Bots release'
-  $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ 'User-Agent' = 'hermes-bots-install' }
-  $asset = $release.assets | Where-Object { $_.name -match '^Hermes-Bots-Setup-.+\.exe$' } | Select-Object -First 1
+  Step 'Looking up the latest NexurBots release'
+  $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ 'User-Agent' = 'nexur-bots-install' }
+  $asset = $release.assets | Where-Object { $_.name -match $InstallerPattern } | Select-Object -First 1
   if (-not $asset) {
     throw "The latest release ($($release.tag_name)) has no Windows installer."
   }
@@ -63,14 +65,36 @@ function Get-LatestInstaller {
   Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $file -UseBasicParsing
   # Saved to a file and read back as text: Windows PowerShell 5.1 hands a release asset (served as
   # application/octet-stream) to .Content as bytes, not text.
-  $sumsFile = Join-Path $env:TEMP 'Hermes-Bots-SHA256SUMS.txt'
+  $sumsFile = Join-Path $env:TEMP 'NexurBots-SHA256SUMS.txt'
   Invoke-WebRequest -Uri $sums.browser_download_url -OutFile $sumsFile -UseBasicParsing
   Test-Checksum $file $asset.name (Get-Content -LiteralPath $sumsFile -Raw)
   return $file
 }
 
-function Install-HermesBots {
-  Write-Host 'Hermes Bots, one-command install'
+function Find-AppExe {
+  # A fresh install goes to Programs\NexurBots, but an upgrade over Hermes Bots (the old name) keeps the old
+  # folder, so the uninstall entry, which records where the app really is, is asked first.
+  $places = @()
+  foreach ($root in 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall') {
+    foreach ($key in (Get-ChildItem -Path $root -ErrorAction SilentlyContinue)) {
+      $entry = Get-ItemProperty -LiteralPath $key.PSPath -ErrorAction SilentlyContinue
+      if ($entry -and "$($entry.DisplayName)" -match '^(NexurBots|Hermes Bots)\b' -and $entry.InstallLocation) {
+        $places += $entry.InstallLocation
+      }
+    }
+  }
+  $places += (Join-Path $env:LOCALAPPDATA 'Programs\NexurBots'), (Join-Path $env:LOCALAPPDATA 'Programs\Hermes Bots')
+  foreach ($dir in $places) {
+    foreach ($name in $AppNames) {
+      $file = Join-Path $dir "$name.exe"
+      if (Test-Path -LiteralPath $file) { return $file }
+    }
+  }
+  return $null
+}
+
+function Install-NexurBots {
+  Write-Host 'NexurBots, one-command install'
   if ($env:OS -ne 'Windows_NT') {
     throw 'This installer is for Windows.'
   }
@@ -87,8 +111,8 @@ function Install-HermesBots {
     throw "HERMES_BOTS_TARGET must be pc or vps, not '$target'."
   }
 
-  if (Get-Process -Name 'Hermes Bots' -ErrorAction SilentlyContinue) {
-    throw 'Hermes Bots is open. Close it first, then run this again.'
+  if (Get-Process -Name $AppNames -ErrorAction SilentlyContinue) {
+    throw 'NexurBots is open. Close it first, then run this again.'
   }
 
   $installer = $env:HERMES_BOTS_INSTALLER
@@ -96,8 +120,8 @@ function Install-HermesBots {
   if ($DryRun) {
     Step "Would install from $(if ($installer) { $installer } else { 'the latest GitHub release, after its checksum matches' })"
     if ($target -eq 'pc' -and -not (Test-Path -LiteralPath $HermesExe)) { Step "Would install Hermes from $HermesInstallerUrl" }
-    Step "Would install Hermes Bots silently into $AppDir"
-    Step 'Would open Hermes Bots'
+    Step "Would install NexurBots silently (into $(Join-Path $env:LOCALAPPDATA 'Programs\NexurBots'), or over an existing install)"
+    Step 'Would open NexurBots'
     return
   }
 
@@ -120,17 +144,18 @@ function Install-HermesBots {
     }
   }
 
-  Step 'Installing Hermes Bots'
+  Step 'Installing NexurBots'
   $setup = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
   if ($setup.ExitCode -ne 0) {
-    throw "The Hermes Bots installer failed (exit code $($setup.ExitCode))."
+    throw "The NexurBots installer failed (exit code $($setup.ExitCode))."
   }
-  if (-not (Test-Path -LiteralPath $AppExe)) {
-    throw "The installer finished, but $AppExe is missing."
+  $appExe = Find-AppExe
+  if (-not $appExe) {
+    throw 'The installer finished, but the NexurBots app was not found.'
   }
 
-  Step 'Opening Hermes Bots'
-  Start-Process -FilePath $AppExe
+  Step 'Opening NexurBots'
+  Start-Process -FilePath $appExe
   if ($target -eq 'pc') {
     Write-Host 'Done. Choose "This computer" and click Connect.'
   } else {
@@ -140,5 +165,5 @@ function Install-HermesBots {
 
 # HERMES_BOTS_NO_RUN lets a test load the functions above without running the install.
 if (-not $env:HERMES_BOTS_NO_RUN) {
-  Install-HermesBots
+  Install-NexurBots
 }

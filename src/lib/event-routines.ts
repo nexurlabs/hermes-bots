@@ -133,11 +133,11 @@ export async function sendTestEvent(hook: HookInfo) {
         action: action === 'merged' ? 'closed' : action,
         repository: { full_name: 'acme/web' },
         sender: { login: 'test-user' },
-        ...(event === 'pull_request' ? { pull_request: { number: 42, title: 'Test event from Hermes Bots', merged: action === 'merged', html_url: 'https://github.com/acme/web/pull/42' } } : {}),
-        ...(event === 'issues' ? { issue: { number: 7, title: 'Test issue from Hermes Bots' } } : {}),
+        ...(event === 'pull_request' ? { pull_request: { number: 42, title: 'Test event from NexurBots', merged: action === 'merged', html_url: 'https://github.com/acme/web/pull/42' } } : {}),
+        ...(event === 'issues' ? { issue: { number: 7, title: 'Test issue from NexurBots' } } : {}),
         ...(event === 'push' ? { ref: 'refs/heads/main', commits: [{ message: 'Test commit' }] } : {})
       })
-    : JSON.stringify({ test: true, message: 'Test event from Hermes Bots', at: new Date().toISOString() })
+    : JSON.stringify({ test: true, message: 'Test event from NexurBots', at: new Date().toISOString() })
   if (!native.hooksTest) {
     throw new Error('Event routines need the desktop app.')
   }

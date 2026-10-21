@@ -64,13 +64,13 @@ export function profileText(member: string): { ok: boolean; text: string } {
   const bot = $allBots.get().find(b => b.name === member)
 
   if (!bot) {
-    return { ok: false, text: 'This bot is not in the Hermes Bots app.' }
+    return { ok: false, text: 'This bot is not in the NexurBots app.' }
   }
 
   return {
     ok: true,
     text: [
-      'Your profile in the Hermes Bots app:',
+      'Your profile in the NexurBots app:',
       `- name: ${bot.display} (teammates @mention you as @${bot.handle})`,
       `- label: ${String(bot.meta.label || '').trim() || '(none)'}`,
       `- description: ${String(bot.meta.description || bot.row.description || '').trim() || '(none)'}`,
@@ -87,7 +87,7 @@ export async function updateOwnProfile(member: string, args: Record<string, unkn
   const bot = $allBots.get().find(b => b.name === member)
 
   if (!bot) {
-    return fail('This bot is not in the Hermes Bots app.')
+    return fail('This bot is not in the NexurBots app.')
   }
 
   // The user has to ask, so it must be answering them in its 1:1 chat right now, not a teammate or a group.
