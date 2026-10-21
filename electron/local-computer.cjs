@@ -839,6 +839,16 @@ function safeEqual(a, b) {
   return x.length === y.length && crypto.timingSafeEqual(x, y)
 }
 
+// Why a request was refused, in words that never include a token. This PC's token on a groups route
+// means that bot's entry was written with the wrong bearer. Anything else is a token this server does
+// not issue for that route, which is what an old registration sends.
+function refusalReason(auth, groupProfile) {
+  if (!auth) return 'no bearer was sent'
+  const presented = String(auth).replace(/^Bearer\s+/i, '')
+  if (groupProfile && token && safeEqual(presented, token)) return 'this PC\'s own token was sent to a groups route'
+  return 'a token this app does not issue for this route (an old registration?)'
+}
+
 function startServer({ onLog, token: keepToken } = {}) {
   if (server) return Promise.resolve({ port, token })
   logFn = onLog || logFn
@@ -865,7 +875,7 @@ function startServer({ onLog, token: keepToken } = {}) {
       } catch {}
       const expected = groupProfile ? `Bearer ${groupToken(groupProfile)}` : `Bearer ${token}`
       if (!safeEqual(auth, expected)) {
-        log('mcp request refused: wrong or missing token')
+        log(`mcp request refused on ${groupProfile ? `the ${groupProfile} groups route` : 'the This PC route'}: ${refusalReason(auth, groupProfile)}`)
         res.writeHead(401, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'unauthorized' }))
         return

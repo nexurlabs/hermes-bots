@@ -29,8 +29,12 @@ test('other failures pass through unchanged', () => {
 
 test('local:start routes spawn failures through explainLocalStartError', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'electron', 'main.cjs'), 'utf8')
+  // A spawn that throws at once (launchLocalServe) and one that fails while Hermes starts (the
+  // local:start handler, which waits for it) both reach the app as the plain explanation.
+  const launch = src.slice(src.indexOf('function launchLocalServe('))
+  const launchBody = launch.slice(0, launch.indexOf('\n}\n'))
   const start = src.slice(src.indexOf("ipcMain.handle('local:start'"))
   const body = start.slice(0, start.indexOf('\n})\n'))
+  assert.match(launchBody, /throw explainLocalStartError\(error\)/)
   assert.match(body, /throw explainLocalStartError\(error\)/)
-  assert.equal((body.match(/explainLocalStartError/g) || []).length >= 2, true)
 })

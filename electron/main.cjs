@@ -10,6 +10,7 @@ const net = require('node:net')
 const crypto = require('node:crypto')
 const { spawn } = require('node:child_process')
 const localComputer = require('./local-computer.cjs')
+const localServe = require('./local-serve.cjs')
 const guards = require('./guards.cjs')
 const { explainLocalStartError } = require('./local-start.cjs')
 const { checkKeyFile, explainKeyError } = require('./ssh-key.cjs')
@@ -186,34 +187,10 @@ function hermesCommand() {
   return candidates.find(p => fs.existsSync(p)) || 'hermes'
 }
 
-function waitForReady(child, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    let buffer = ''
-    const timer = setTimeout(() => reject(new Error('Hermes took too long to start')), timeoutMs)
-    const onData = chunk => {
-      buffer += chunk.toString()
-      const match = /HERMES_DASHBOARD_READY\s+port=(\d+)/.exec(buffer)
-      if (match) {
-        clearTimeout(timer)
-        resolve(Number(match[1]))
-      }
-      if (buffer.length > 200000) buffer = buffer.slice(-20000)
-    }
-    child.stdout && child.stdout.on('data', onData)
-    child.stderr && child.stderr.on('data', onData)
-    child.on('exit', code => {
-      clearTimeout(timer)
-      reject(new Error(`Hermes exited (${code}). ${buffer.slice(-300)}`))
-    })
-    child.on('error', error => {
-      clearTimeout(timer)
-      reject(error)
-    })
-  })
-}
+// The `hermes serve` this app started that has not printed its ready line yet (see local-serve.cjs).
+let pendingLocal = null
 
-ipcMain.handle('local:start', async () => {
-  if (ownedLocal && (await alive(ownedLocal.baseUrl))) return ownedLocal
+function launchLocalServe() {
   const token = crypto.randomBytes(24).toString('hex')
   const command = hermesCommand()
   let child
@@ -227,17 +204,41 @@ ipcMain.handle('local:start', async () => {
     throw explainLocalStartError(error)
   }
   children.add(child)
-  child.on('exit', () => children.delete(child))
+  const pending = { child, token, serve: localServe.watchServe(child) }
+  child.on('exit', () => {
+    children.delete(child)
+    if (pendingLocal === pending) pendingLocal = null
+  })
+  return pending
+}
+
+ipcMain.handle('local:start', async () => {
+  if (ownedLocal && (await alive(ownedLocal.baseUrl))) return ownedLocal
+  // A serve still coming up (the last wait timed out, say) is waited for, not replaced: a second one
+  // would contend with the first for Hermes' files while it updates.
+  if (!pendingLocal) pendingLocal = launchLocalServe()
+  const pending = pendingLocal
   let port
+
   try {
-    port = await waitForReady(child, 120000)
+    port = await localServe.waitForServe(pending.serve, { home: hermesHome(), onStep: step })
   } catch (error) {
+    if (error.timedOut) {
+      // Still starting: keep the process, so the next Connect waits for this same one.
+      // The output is logged with this launch's session token blanked out, in case Hermes echoed it.
+      const output = String(error.output || '').split(pending.token).join('[token]')
+      dbg('hermes serve not ready yet:', error.message, '| output:', JSON.stringify(output))
+      throw error
+    }
+    pendingLocal = null
     // The raw error (e.g. "spawn hermes ENOENT") goes to the log; the app gets a plain explanation.
-    dbg(`local:start: ${command} failed: ${error && error.message}`)
+    dbg(`local:start: hermes serve failed: ${error && error.message}`)
     throw explainLocalStartError(error)
   }
-  ownedLocal = { baseUrl: `http://127.0.0.1:${port}`, token }
-  syncThisPcMcp({ baseUrl: ownedLocal.baseUrl, hermesToken: token, cfg: null }).catch(() => {})
+
+  pendingLocal = null
+  ownedLocal = { baseUrl: `http://127.0.0.1:${port}`, token: pending.token }
+  syncThisPcMcp({ baseUrl: ownedLocal.baseUrl, hermesToken: pending.token, cfg: null }).catch(() => {})
   return ownedLocal
 })
 
