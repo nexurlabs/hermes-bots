@@ -10,7 +10,10 @@ const net = require('node:net')
 const crypto = require('node:crypto')
 const { spawn } = require('node:child_process')
 const localComputer = require('./local-computer.cjs')
+const localServe = require('./local-serve.cjs')
 const guards = require('./guards.cjs')
+const { explainLocalStartError } = require('./local-start.cjs')
+const { checkKeyFile, explainKeyError } = require('./ssh-key.cjs')
 
 const children = new Set()
 let win = null
@@ -184,44 +187,58 @@ function hermesCommand() {
   return candidates.find(p => fs.existsSync(p)) || 'hermes'
 }
 
-function waitForReady(child, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    let buffer = ''
-    const timer = setTimeout(() => reject(new Error('Hermes took too long to start')), timeoutMs)
-    const onData = chunk => {
-      buffer += chunk.toString()
-      const match = /HERMES_DASHBOARD_READY\s+port=(\d+)/.exec(buffer)
-      if (match) {
-        clearTimeout(timer)
-        resolve(Number(match[1]))
-      }
-      if (buffer.length > 200000) buffer = buffer.slice(-20000)
-    }
-    child.stdout && child.stdout.on('data', onData)
-    child.stderr && child.stderr.on('data', onData)
-    child.on('exit', code => {
-      clearTimeout(timer)
-      reject(new Error(`Hermes exited (${code}). ${buffer.slice(-300)}`))
+// The `hermes serve` this app started that has not printed its ready line yet (see local-serve.cjs).
+let pendingLocal = null
+
+function launchLocalServe() {
+  const token = crypto.randomBytes(24).toString('hex')
+  const command = hermesCommand()
+  let child
+  try {
+    child = spawn(command, ['serve', '--host', '127.0.0.1', '--port', '0'], {
+      env: { ...process.env, HERMES_DASHBOARD_SESSION_TOKEN: token, PYTHONUNBUFFERED: '1' },
+      windowsHide: true
     })
-    child.on('error', error => {
-      clearTimeout(timer)
-      reject(error)
-    })
+  } catch (error) {
+    dbg(`local:start: could not run ${command}: ${error && error.message}`)
+    throw explainLocalStartError(error)
+  }
+  children.add(child)
+  const pending = { child, token, serve: localServe.watchServe(child) }
+  child.on('exit', () => {
+    children.delete(child)
+    if (pendingLocal === pending) pendingLocal = null
   })
+  return pending
 }
 
 ipcMain.handle('local:start', async () => {
   if (ownedLocal && (await alive(ownedLocal.baseUrl))) return ownedLocal
-  const token = crypto.randomBytes(24).toString('hex')
-  const child = spawn(hermesCommand(), ['serve', '--host', '127.0.0.1', '--port', '0'], {
-    env: { ...process.env, HERMES_DASHBOARD_SESSION_TOKEN: token, PYTHONUNBUFFERED: '1' },
-    windowsHide: true
-  })
-  children.add(child)
-  child.on('exit', () => children.delete(child))
-  const port = await waitForReady(child, 120000)
-  ownedLocal = { baseUrl: `http://127.0.0.1:${port}`, token }
-  syncThisPcMcp({ baseUrl: ownedLocal.baseUrl, hermesToken: token, cfg: null }).catch(() => {})
+  // A serve still coming up (the last wait timed out, say) is waited for, not replaced: a second one
+  // would contend with the first for Hermes' files while it updates.
+  if (!pendingLocal) pendingLocal = launchLocalServe()
+  const pending = pendingLocal
+  let port
+
+  try {
+    port = await localServe.waitForServe(pending.serve, { home: hermesHome(), onStep: step })
+  } catch (error) {
+    if (error.timedOut) {
+      // Still starting: keep the process, so the next Connect waits for this same one.
+      // The output is logged with this launch's session token blanked out, in case Hermes echoed it.
+      const output = String(error.output || '').split(pending.token).join('[token]')
+      dbg('hermes serve not ready yet:', error.message, '| output:', JSON.stringify(output))
+      throw error
+    }
+    pendingLocal = null
+    // The raw error (e.g. "spawn hermes ENOENT") goes to the log; the app gets a plain explanation.
+    dbg(`local:start: hermes serve failed: ${error && error.message}`)
+    throw explainLocalStartError(error)
+  }
+
+  pendingLocal = null
+  ownedLocal = { baseUrl: `http://127.0.0.1:${port}`, token: pending.token }
+  syncThisPcMcp({ baseUrl: ownedLocal.baseUrl, hermesToken: pending.token, cfg: null }).catch(() => {})
   return ownedLocal
 })
 
@@ -356,10 +373,8 @@ function explainSsh(raw, cfg) {
   const who = targetOf(cfg)
   if (/ENOENT/.test(text) || /not recognized|cannot find/i.test(text) && /ssh/i.test(text))
     return 'The OpenSSH client was not found on this PC. Turn on "OpenSSH Client" in Windows Optional Features, then try again.'
-  if (/UNPROTECTED PRIVATE KEY|bad permissions/i.test(text))
-    return `Windows says the key file is readable by other users (${key}). Right-click it → Properties → Security and leave only your own account.`
-  if (/no such file|not accessible|Identity file/i.test(text) && /identity|key/i.test(text) && key)
-    return `The key file ${key} was not found.`
+  const keyMsg = explainKeyError(text, key)
+  if (keyMsg) return keyMsg
   if (/REMOTE HOST IDENTIFICATION HAS CHANGED/i.test(text))
     return `The VM's identity changed (new server or reinstall). Remove its old line from ${path.join(os.homedir(), '.ssh', 'known_hosts')} and try again.`
   if (/Permission denied|publickey|Too many authentication/i.test(text))
@@ -1027,7 +1042,8 @@ async function connectSsh(cfg) {
   }
 
   const keyFile = expandLocal(cfg.keyPath)
-  if (keyFile && !fs.existsSync(keyFile)) throw new Error(`The key file ${keyFile} was not found on this PC.`)
+  const keyProblem = checkKeyFile(keyFile)
+  if (keyProblem) throw new Error(keyProblem)
 
   // 1) reach the VM and log in — fails fast with a readable reason.
   step(`Reaching ${cfg.host}…`)

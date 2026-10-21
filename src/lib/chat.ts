@@ -18,6 +18,7 @@ import { native } from './native'
 import { $profiles, clearTurnStatus, recordTurnStatus, refreshProfiles, setBusy } from './store'
 import { CONTEXT_CLOSE, CONTEXT_OPEN, directoryInput, stripContext, teamContext, wrapContext } from './team'
 import { dismissChatCards } from './ask'
+import { noteProviderError } from './provider-notice'
 import { refFromRaw, refLine, takeNotes } from './reactions'
 import { threadFromRaw, threadLine, threadNote } from './threads'
 import type { ChatMsg, PendingPrompt, ToolCall } from './types'
@@ -451,6 +452,7 @@ export function applyEvent(messages: ChatMsg[], event: GatewayEvent, from?: stri
       msg.tools = (msg.tools || []).map(tool => ({ ...tool, done: true }))
 
       if (failed) {
+        noteProviderError(payload.error || payload.failure_reason || finalText)
         list.push({
           id: newId('e'),
           role: 'error',
@@ -467,6 +469,7 @@ export function applyEvent(messages: ChatMsg[], event: GatewayEvent, from?: stri
         list[at] = { ...current, streaming: false }
       }
 
+      noteProviderError(payload.message)
       list.push({ id: newId('e'), role: 'error', text: String(payload.message || 'Something went wrong'), at: Date.now(), from })
       break
     }
@@ -966,3 +969,4 @@ gateway.on(event => {
 
 import { reapplySessionModel, useRuntimeLookup } from './session-model'
 useRuntimeLookup(runtimeFor)
+

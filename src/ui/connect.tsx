@@ -7,6 +7,8 @@ import { $phase } from '../lib/store'
 import type { Connection } from '../lib/types'
 import { BotFace } from './avatar-face'
 import { Icon, type IconName } from './icons'
+import { isMissingAgentError } from '../lib/install-help'
+import { MissingAgent } from './missing-agent'
 
 export type Mode = 'local' | 'remote' | 'ssh'
 
@@ -175,7 +177,9 @@ export function ConnectScreen() {
               </div>
             ) : null}
 
-            {error ? (
+            {error && mode === 'local' && isMissingAgentError(error) ? (
+              <MissingAgent logPath={logPath} onRetry={submit} platform={native.platform} />
+            ) : error ? (
               <div className="banner bad">
                 <Icon name="shield" size={16} />
                 <span className="banner-text">

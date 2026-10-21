@@ -24,7 +24,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npm install --ignore-scripts --package-lock=false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      # bun.lock is the lockfile: fail if it is out of date instead of silently resolving new versions.
+      - run: bun install --frozen-lockfile --ignore-scripts
       - run: npm run check
       # The .cjs suites run on node (npm test); the .ts suites run on bun.
       # Glob instead of naming files, so a new test is never silently skipped.
@@ -33,7 +37,8 @@ jobs:
       - run: npm test
       - run: npx --yes bun@1.4.2 test --isolate ./tests/*.test.ts
         shell: bash
-      - run: npx tsc --noEmit
+      # bunx, not npx: with a bun-installed node_modules npx on Windows can miss the local tsc and fetch the wrong package.
+      - run: bunx tsc --noEmit -p .
       - run: npx --yes bun@1.4.2 run build
       # Every require('./...') in the packaged app/*.cjs must resolve to a file build.ts copied.
       - run: node --test tests/build/requires.test.cjs
@@ -56,10 +61,49 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npm install --ignore-scripts --package-lock=false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - run: bun install --frozen-lockfile --ignore-scripts
       - run: node node_modules/electron/install.js
       - run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: npx --yes bun@1.4.2 run build
       - run: xvfb-run -a node tests/build/smoke.cjs
         env:
           SMOKE_TIMEOUT_MS: '90000'
+
+  # Builds the real NSIS installer, installs it silently on a Windows runner and boots the INSTALLED
+  # app with HERMES_BOTS_SMOKE=1 (fails without HERMES_BOTS_SMOKE_OK). Catches packaging mistakes
+  # (asar contents, missing files, electron-builder config) the dev-Electron smoke job can't see.
+  windows-packaged:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run build
+      - name: Build installer (unsigned)
+        run: npx electron-builder --win nsis --x64 --publish never
+      - name: Smoke-test the installed app
+        shell: bash
+        run: .github/scripts/smoke-windows-installer.sh
+      - name: SHA256 of the installer
+        shell: bash
+        run: cd dist && sha256sum Hermes-Bots-Setup-*.exe | tee SHA256SUMS.txt
+      # Convenience copy for testing a PR build; allowed to fail while artifact storage is full.
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: hermes-bots-windows-installer-pr
+          path: |
+            dist/*.exe
+            dist/SHA256SUMS.txt
+          retention-days: 7
