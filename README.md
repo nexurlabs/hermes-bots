@@ -6,6 +6,14 @@ Hermes does the thinking. This app is the front end: roster, chats, groups, per-
 
 NexurBots is made by NexurLabs. Up to version 1.8.5 it was called Hermes Bots.
 
+![A 1:1 chat with Nova, the team's Lead bot, next to its settings: model, approvals, routines and secrets](docs/screenshots/chat.png)
+
+![A group chat where four bots split up a product launch, with the members list on the right](docs/screenshots/group.png)
+
+![A bot asking before it right-clicks on your PC, with Deny, Allow for this chat and Allow once](docs/screenshots/approvals.png)
+
+*Screenshots use the app's built-in preview data (see [Preview without Hermes](#preview-without-hermes)).*
+
 ## What you get
 
 - **A roster of bots.** Every Hermes profile shows up as a bot. Give each a name, a face and a role. One bot can be the **Lead**; it answers first in groups and hands work to teammates.

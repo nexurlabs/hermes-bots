@@ -1013,6 +1013,15 @@ export function demo(raw: string) {
     })
   }
 
+  // The preview has no Hermes to ask, so it reads as connected (the `offline` flag below says otherwise)
+  // and every bot gets sample secret names instead of the panel's "couldn't list" error.
+  gateway.state.set('open')
+  for (const profile of $profiles.get()) {
+    if (!$secretNames.get()[profile.name]) {
+      $secretNames.set({ ...$secretNames.get(), [profile.name]: { loading: false, names: [{ name: 'OPENROUTER_API_KEY', custom: false }] } })
+    }
+  }
+
   $panelOpen.set(true)
   $selection.set(view === 'chat' ? { kind: 'bot', id: 'default' } : view === 'computer' ? { kind: 'bot', id: 'scout' } : view === 'room' ? { kind: 'room', id: 'id:r1' } : null)
   $phase.set('app')
