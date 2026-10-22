@@ -15,6 +15,7 @@ const guards = require('./guards.cjs')
 const { explainLocalStartError } = require('./local-start.cjs')
 const { checkKeyFile, explainKeyError } = require('./ssh-key.cjs')
 const { adoptOldDataFolder, OLD_NAME } = require('./app-data.cjs')
+const tokenStore = require('./token-store.cjs')
 
 // Before anything reads settings: the data folder used to be named after Hermes Bots (see app-data.cjs).
 if (process.env.HERMES_BOTS_SMOKE !== '1') {
@@ -839,12 +840,43 @@ async function checkThisPc(who) {
   }
 }
 
+// Where the copy of the This PC token lives outside the data folder (token-store.cjs). None in the CI smoke test.
+const tokenCopyDir = () =>
+  process.env.HERMES_BOTS_SMOKE === '1' ? '' : path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), app.getName())
+
+// The This PC token, decided once per run: the one in settings, else the copy outside the data folder,
+// else none (startServer makes a new one). Same token every launch, so Hermes processes that are still
+// holding the old registration keep working, even after the data folder was wiped.
+let thisPcTokenReady = null
+function thisPcSavedToken() {
+  if (!thisPcTokenReady) {
+    thisPcTokenReady = (async () => {
+      const saved = unseal(readSettings().thisPcToken || '')
+      if (saved || !tokenCopyDir()) return saved
+      const kept = await tokenStore.loadToken(tokenCopyDir())
+      if (kept) dbg('this-pc token: restored from the copy outside the data folder')
+      return kept
+    })()
+  }
+  return thisPcTokenReady
+}
+
+// Keeps the copy in step with the token in use, once per run. The fingerprint check spares a PowerShell
+// start on every launch; it only runs when the copy is missing or holds another token.
+let tokenCopyChecked = false
+function keepTokenCopy(token) {
+  if (tokenCopyChecked || !tokenCopyDir()) return
+  tokenCopyChecked = true
+  if (tokenStore.copyMatches(tokenCopyDir(), token)) return
+  void tokenStore.saveToken(tokenCopyDir(), token).then(ok => dbg(`this-pc token copy outside the data folder: ${ok ? 'saved' : 'could not save'}`))
+}
+
 async function syncThisPcMcp({ baseUrl, hermesToken, cfg }) {
   try {
-    // Same token every launch, so a Hermes that is still holding the old registration keeps working.
-    const savedToken = unseal(readSettings().thisPcToken || '')
+    const savedToken = await thisPcSavedToken()
     const { port: mcpPort, token: mcpToken } = await localComputer.startServer({ onLog: dbg, token: savedToken })
-    if (mcpToken !== savedToken) writeSettings({ ...readSettings(), thisPcToken: seal(mcpToken) })
+    if (mcpToken !== unseal(readSettings().thisPcToken || '')) writeSettings({ ...readSettings(), thisPcToken: seal(mcpToken) })
+    keepTokenCopy(mcpToken)
     const mcpUrl = cfg ? `http://127.0.0.1:${openReverseTunnel(cfg, mcpPort)}/mcp` : `http://127.0.0.1:${mcpPort}/mcp`
     const old = thisPcLinks.get(baseUrl)
     const sameServer = old && old.mcpToken === mcpToken && old.mcpUrl === mcpUrl

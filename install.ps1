@@ -72,15 +72,16 @@ function Get-LatestInstaller {
 }
 
 function Find-AppExe {
-  # A fresh install goes to Programs\NexurBots, but an upgrade over Hermes Bots (the old name) keeps the old
-  # folder, so the uninstall entry, which records where the app really is, is asked first.
+  # A fresh install goes to Programs\NexurBots, but an upgrade over Hermes Bots (the old name) or a custom
+  # folder lands elsewhere, so the uninstall entry is asked first. Its InstallLocation is often blank, while
+  # UninstallString always names the uninstaller, which sits next to the app.
   $places = @()
   foreach ($root in 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall') {
     foreach ($key in (Get-ChildItem -Path $root -ErrorAction SilentlyContinue)) {
       $entry = Get-ItemProperty -LiteralPath $key.PSPath -ErrorAction SilentlyContinue
-      if ($entry -and "$($entry.DisplayName)" -match '^(NexurBots|Hermes Bots)\b' -and $entry.InstallLocation) {
-        $places += $entry.InstallLocation
-      }
+      if (-not $entry -or "$($entry.DisplayName)" -notmatch '^(NexurBots|Hermes Bots)\b') { continue }
+      if ($entry.InstallLocation) { $places += $entry.InstallLocation }
+      if ("$($entry.UninstallString)" -match '^"?([^"]+\.exe)') { $places += (Split-Path -Parent $Matches[1]) }
     }
   }
   $places += (Join-Path $env:LOCALAPPDATA 'Programs\NexurBots'), (Join-Path $env:LOCALAPPDATA 'Programs\Hermes Bots')
@@ -102,9 +103,14 @@ function Install-NexurBots {
   $target = $env:HERMES_BOTS_TARGET
   if (-not $target) {
     $target = 'pc'
+    # A PowerShell started with -NonInteractive can't ask; it keeps the default, this PC.
     if ([Environment]::UserInteractive) {
-      $answer = Read-Host 'Set up on this PC (1) or on a VPS (2)? [1]'
-      if ($answer -eq '2') { $target = 'vps' }
+      try {
+        $answer = Read-Host 'Set up on this PC (1) or on a VPS (2)? [1]'
+        if ($answer -eq '2') { $target = 'vps' }
+      } catch {
+        Step 'No way to ask here, so setting up on this PC'
+      }
     }
   }
   if ($target -notin @('pc', 'vps')) {
@@ -157,7 +163,7 @@ function Install-NexurBots {
   Step 'Opening NexurBots'
   Start-Process -FilePath $appExe
   if ($target -eq 'pc') {
-    Write-Host 'Done. Choose "This computer" and click Connect.'
+    Write-Host 'Done. NexurBots is open. If it asks where Hermes runs, choose "This computer" and click Connect.'
   } else {
     Write-Host 'Done. Open Settings > Machines and add your VPS over SSH.'
   }

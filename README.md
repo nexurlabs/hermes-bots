@@ -83,7 +83,7 @@ Then open a new terminal and check `hermes --version` (v0.22.3 or newer). More o
 
 **Updating:** download the newer `NexurBots-Setup-<version>.exe` and run it. It installs over the old version in place; you don't need to uninstall first. There's no auto-update, so check Releases for new versions.
 
-**Your settings** (connection, group chat history, window size and other app-side data) are in `%APPDATA%\NexurBots`, the same place as when running from source. (Versions called Hermes Bots kept them in `%APPDATA%\Hermes Bots`; the first time 1.8.6 or newer starts, it moves that folder to the new name.) Installing, updating and uninstalling leave them alone. Delete that folder after uninstalling to remove them too. Bots' own settings, memory and history are stored by Hermes, not here.
+**Your settings** (connection, group chat history, window size and other app-side data) are in `%APPDATA%\NexurBots`, the same place as when running from source. (Versions called Hermes Bots kept them in `%APPDATA%\Hermes Bots`; the first time 1.8.6 or newer starts, it moves that folder to the new name.) Installing, updating and uninstalling leave them alone. The key your bots use to reach the app's This PC and group tools is also kept, encrypted for your Windows account, in `%LOCALAPPDATA%\NexurBots`, so clearing the settings folder doesn't cut off bots that are already running. Delete both folders after uninstalling to remove everything. Bots' own settings, memory and history are stored by Hermes, not here.
 
 **Uninstall:** Settings → Apps → Installed apps → NexurBots → Uninstall.
 
