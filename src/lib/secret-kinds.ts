@@ -15,11 +15,25 @@ export interface SecretName {
   password?: boolean
 }
 
+/**
+ * Non-secret settings Hermes's own `.env` template writes into every new profile. Hermes's /api/env
+ * lists them as `custom` (they're in no key catalog), so `custom` alone can't tell them from a key
+ * the user added. Seen on a fresh 1.8.7 profile: TERMINAL_TIMEOUT, BROWSER_INACTIVITY_TIMEOUT, …
+ */
+const HERMES_TEMPLATE_SETTINGS = new Set([
+  'TERMINAL_ENV', 'TERMINAL_DOCKER_IMAGE', 'TERMINAL_MODAL_IMAGE', 'TERMINAL_CWD', 'TERMINAL_TIMEOUT', 'TERMINAL_LIFETIME_SECONDS',
+  'BROWSERBASE_PROXIES', 'BROWSERBASE_ADVANCED_STEALTH', 'AGENT_BROWSER_ENGINE', 'BROWSER_SESSION_TIMEOUT', 'BROWSER_INACTIVITY_TIMEOUT',
+  'WEB_TOOLS_DEBUG', 'VISION_TOOLS_DEBUG', 'MOA_TOOLS_DEBUG', 'IMAGE_TOOLS_DEBUG',
+  'CONTEXT_COMPRESSION_ENABLED', 'CONTEXT_COMPRESSION_THRESHOLD',
+  'HERMES_HUMAN_DELAY_MODE', 'HERMES_HUMAN_DELAY_MIN_MS', 'HERMES_HUMAN_DELAY_MAX_MS'
+])
+
 const APP_PREFIX = /^MCP_HERMES_BOTS_/
 const LOOKS_SECRET = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH|COOKIE|PRIVATE)/
 
 export function secretKind(item: SecretName): SecretKind {
   if (APP_PREFIX.test(item.name)) return 'app'
+  if (HERMES_TEMPLATE_SETTINGS.has(item.name)) return 'setting'
   if (item.custom) return 'secret'
   if (item.password === false && !LOOKS_SECRET.test(item.name)) return 'setting'
   if (item.password === undefined && !LOOKS_SECRET.test(item.name)) return 'setting'

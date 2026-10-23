@@ -21,3 +21,9 @@ describe('secrets list grouping', () => {
     expect([g.secret.length, g.app.length, g.setting.length]).toEqual([1, 1, 1])
   })
 })
+
+test("Hermes's template settings fold away even though /api/env calls them custom", () => {
+  expect(secretKind({ name: 'BROWSER_INACTIVITY_TIMEOUT', custom: true, password: true })).toBe('setting')
+  expect(secretKind({ name: 'TERMINAL_TIMEOUT', custom: true, password: true })).toBe('setting')
+  expect(secretKind({ name: 'MY_TIMEOUT', custom: true, password: true })).toBe('secret')
+})
