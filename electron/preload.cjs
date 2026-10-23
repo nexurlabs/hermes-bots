@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('native', {
     ipcRenderer.on('connect:step', handler)
     return () => ipcRenderer.removeListener('connect:step', handler)
   },
+  ensureGateway: () => ipcRenderer.invoke('hermes:ensureGateway'),
   hermesMachines: () => ipcRenderer.invoke('hermes:machines'),
   openExternal: url => ipcRenderer.invoke('open:external', url),
   saveFile: (name, dataUrl) => ipcRenderer.invoke('file:save', { name, dataUrl }),

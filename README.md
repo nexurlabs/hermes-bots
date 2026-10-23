@@ -65,6 +65,12 @@ NexurBots is the front end; [Hermes Agent](https://github.com/NousResearch/herme
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 ```
 
+To install without Hermes's interactive setup wizard (you can add a provider later with `hermes model`), pass `--skip-setup`:
+
+```sh
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-setup
+```
+
 **Windows (PowerShell):**
 
 ```powershell
@@ -86,6 +92,25 @@ Then open a new terminal and check `hermes --version` (v0.22.3 or newer). More o
 **Your settings** (connection, group chat history, window size and other app-side data) are in `%APPDATA%\NexurBots`, the same place as when running from source. (Versions called Hermes Bots kept them in `%APPDATA%\Hermes Bots`; the first time 1.8.6 or newer starts, it moves that folder to the new name.) Installing, updating and uninstalling leave them alone. The key your bots use to reach the app's This PC and group tools is also kept, encrypted for your Windows account, in `%LOCALAPPDATA%\NexurBots`, so clearing the settings folder doesn't cut off bots that are already running. Delete both folders after uninstalling to remove everything. Bots' own settings, memory and history are stored by Hermes, not here.
 
 **Uninstall:** Settings → Apps → Installed apps → NexurBots → Uninstall.
+
+## Linux and macOS
+
+There's no packaged Linux or macOS build yet (releases are Windows installers only). Build and run from source instead:
+
+1. Install Hermes Agent (Step 0 above) and check `hermes --version`.
+2. Install [Bun](https://bun.sh) and Node.js 20+ (plus `git`).
+3. Clone and start:
+
+   ```sh
+   git clone https://github.com/nexurlabs/nexur-bots.git
+   cd nexur-bots
+   bun install --frozen-lockfile
+   bun run start
+   ```
+
+4. Pick **This computer** on the connect screen.
+
+Settings live in `~/.config/NexurBots` on Linux and `~/Library/Application Support/NexurBots` on macOS. On Linux the window keeps its own minimize/maximize/close buttons in the top-right corner. The encrypted backup copy of the This PC key is Windows-only (it uses Windows DPAPI), so on Linux and macOS it lives only in the settings folder.
 
 ## Run it
 

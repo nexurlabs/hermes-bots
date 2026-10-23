@@ -28,6 +28,7 @@ import {
   THIS_PC_SERVER
 } from '../lib/botconfig'
 import { cleanError } from '../lib/native'
+import { applyDefaultToLiveSessions } from '../lib/session-model'
 import { $allBots } from '../lib/store'
 import { Avatar } from './avatar'
 import { Seg, Switch } from './controls'
@@ -227,6 +228,8 @@ function ModelPane({ cfg, name, save }: PaneProps) {
         setConfirm(result.confirm)
       } else {
         setConfirm('')
+        // Chats already running switch now, not only after their session restarts.
+        await applyDefaultToLiveSessions(name, { provider: slug, model: chosen })
       }
     })
   }
@@ -306,7 +309,8 @@ function ModelPane({ cfg, name, save }: PaneProps) {
               </button>
             </div>
           ) : null}
-          <div className="pane-actions">
+          <div className="pane-actions sticky">
+            {dirty ? <small className="grow">Selected: {chosen}</small> : null}
             <button className="btn primary" disabled={!dirty} onClick={() => void apply()} type="button">
               Use this model
             </button>
@@ -450,6 +454,9 @@ function SafetyPane({ cfg, name, save }: PaneProps) {
     <Pane hint="How much freedom this bot has, and where it works." title="Safety & folder">
       <div className="field">
         <span>Before running commands</span>
+        {cfg.approvals === 'unknown' ? (
+          <small className="warn">Hermes has an unrecognised approval mode ({cfg.approvalsRaw ?? '?'}). Pick one below to set it.</small>
+        ) : null}
         <div className="radio-cards">
           {APPROVAL_CHOICES.map(choice => (
             <button

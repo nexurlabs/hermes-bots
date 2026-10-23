@@ -162,6 +162,8 @@ export interface ChatMsg {
   from?: string
   tools?: ToolCall[]
   streaming?: boolean
+  /** The reply was cut off (Stop, or Hermes restarted mid-stream): the partial text is kept and marked. */
+  stopped?: boolean
   attachments?: MsgAttachment[]
   /** Sent while the bot was mid-reply: folded into the running turn, or queued to run right after it. */
   midTurn?: 'steered' | 'queued'

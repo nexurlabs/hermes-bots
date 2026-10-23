@@ -68,6 +68,36 @@ export const useRuntimeLookup = (fn: (key: string) => string | undefined) => {
   live = fn
 }
 
+let liveOf: (profile: string) => { key: string; runtime: string }[] = () => []
+/** chat.ts hands over its list of running sessions per bot (avoids an import cycle). */
+export const useLiveSessions = (fn: typeof liveOf) => {
+  liveOf = fn
+}
+
+/**
+ * A new bot default must reach the chats already running: Hermes builds a live session's agent with
+ * the model it started on, so only the profile changing would leave the next turn on the old model
+ * (seen: agent.log model=MiniMax-M3 after switching to M2.7). Every running session of the bot that
+ * has no per-chat pick of its own is pinned to the new default now. Returns how many were switched.
+ */
+export async function applyDefaultToLiveSessions(profile: string, pick: SessionModel): Promise<number> {
+  if (preview) return 0
+  const picks = $sessionModels.get()
+  let done = 0
+
+  for (const { key, runtime } of liveOf(profile)) {
+    if (picks[key]) continue
+    try {
+      await pin(runtime, profile, pick, true)
+      done++
+    } catch {
+      /* that session picks up the profile when it restarts */
+    }
+  }
+
+  return done
+}
+
 function putPick(key: string, pick: SessionModel | null) {
   const next = { ...$sessionModels.get() }
 
@@ -149,6 +179,7 @@ export async function makeBotDefault(opts: { key: string; scope: string; profile
   if (result.confirm) return result
   if (opts.pick.reasoning) await setReasoning(opts.profile, opts.pick.reasoning).catch(() => undefined)
   putPick(opts.key, null)
+  await applyDefaultToLiveSessions(opts.profile, opts.pick)
   addSwitchNote(opts.scope, `${opts.who || 'Bot'} default is now ${opts.pick.model}`)
 
   return {}

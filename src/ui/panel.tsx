@@ -6,6 +6,7 @@ import { $chats } from '../lib/chat'
 import { $routines, isPaused, isRoutineList, loadRoutines, type Routine } from '../lib/routines'
 import { $handoff } from '../lib/handoff'
 import { $secretNames, deleteSecret, refreshSecretNames } from '../lib/secrets'
+import { groupSecrets, secretKind, type SecretName } from '../lib/secret-kinds'
 import { $screenChip } from '../lib/screen-chip'
 import { $rooms, roomBots, roomSettings, setQuiet, setRoomMembers } from '../lib/rooms'
 import { $bots, $panelOpen, $selection, saveMeta, setLead, toast } from '../lib/store'
@@ -125,11 +126,13 @@ const shortModel = (model: string) => model.split('/').pop() || model
 /** One plain value per row; the details live one click away in settings. */
 function setupRows(bot: Bot, cfg: BotConfig, routines?: Routine[]): SetupRow[] {
   const live = (routines || []).filter(r => !isPaused(r) && r.state !== 'completed').length
-  const model = cfg.model.model || bot.row.model || ''
+  // With no provider set up, Hermes still reports its built-in default model (e.g. claude-opus-4.6)
+  // even though nothing can run it, so say "Not set" instead of naming a model that won't answer.
+  const model = cfg.model.provider ? cfg.model.model || bot.row.model || '' : ''
 
   return [
-    { icon: 'sparkle', label: 'Model', value: model ? shortModel(model) : 'Default', full: [model, cfg.model.provider && `via ${cfg.model.provider}`].filter(Boolean).join(' '), section: 'model' },
-    { icon: 'shield', label: 'Approvals', value: approvalLabel(cfg.approvals), full: cfg.cwd ? `Works in ${cfg.cwd}` : undefined, section: 'safety' },
+    { icon: 'sparkle', label: 'Model', value: model ? shortModel(model) : cfg.model.provider ? 'Default' : 'Not set', full: [model, cfg.model.provider && `via ${cfg.model.provider}`].filter(Boolean).join(' '), section: 'model' },
+    { icon: 'shield', label: 'Approvals', value: approvalLabel(cfg.approvals), full: cfg.approvals === 'unknown' ? `Hermes has approvals.mode: ${cfg.approvalsRaw ?? '?'}, which it does not recognise` : cfg.cwd ? `Works in ${cfg.cwd}` : undefined, section: 'safety' },
     {
       icon: 'clock',
       label: 'Routines',
@@ -349,13 +352,60 @@ function SecretsSection({ bot }: { bot: Bot }) {
     }
   }, [bot.name])
 
-  const names = list?.names || []
+  const all = list?.names || []
+  const groups = groupSecrets(all)
+  const [showSettings, setShowSettings] = useState(false)
+  const names = [...groups.secret, ...groups.app]
+
+  const row = (item: SecretName) => {
+    const kind = secretKind(item)
+
+    return (
+      <div className={`setup-row secret-row${kind === 'secret' ? '' : ` ${kind}`}`} key={item.name}>
+        <span className="tile">
+          <Icon name={kind === 'app' ? 'shield' : 'key'} size={15} />
+        </span>
+        <span className="txt">
+          <b className="mono" title={item.name}>
+            {item.name}
+          </b>
+          <small>{kind === 'app' ? 'Managed by NexurBots · value hidden' : kind === 'setting' ? 'Hermes setting' : item.custom ? 'Set · value hidden' : 'Hermes key · value hidden'}</small>
+        </span>
+        {kind === 'app' ? null : confirm === item.name ? (
+          <span className="end secret-del">
+            <button className="btn sm ghost" onClick={() => setConfirm('')} type="button">
+              Keep
+            </button>
+            <button
+              className="btn sm danger"
+              onClick={() =>
+                void deleteSecret(bot.name, item.name)
+                  .then(() => toast(`Deleted ${item.name}`))
+                  .catch(error => toast(String(error.message || error), 'bad'))
+                  .finally(() => {
+                    setConfirm('')
+                    void refreshSecretNames(bot.name)
+                  })
+              }
+              type="button"
+            >
+              Delete
+            </button>
+          </span>
+        ) : (
+          <button aria-label={`Delete ${item.name}`} className="icon-btn xs ghost end" onClick={() => setConfirm(item.name)} title="Delete" type="button">
+            <Icon name="trash" size={14} />
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <section className="group secrets">
       <header>
         <b>Secrets</b>
-        {names.length ? <span className="count">{names.length}</span> : null}
+        {groups.secret.length ? <span className="count">{groups.secret.length}</span> : null}
       </header>
       <div className="group-card">
         {list?.error ? (
@@ -364,50 +414,26 @@ function SecretsSection({ bot }: { bot: Bot }) {
               <small>{list.error}</small>
             </span>
           </div>
-        ) : !names.length ? (
+        ) : !names.length && !groups.setting.length ? (
           <div className="setup-row">
             <span className="txt">
               <small>{list?.loading ? 'Loading…' : `None yet. When ${bot.display} needs a key it asks with a secure card in your chat.`}</small>
             </span>
           </div>
         ) : (
-          names.map(item => (
-            <div className="setup-row" key={item.name}>
-              <span className="tile">
-                <Icon name="key" size={15} />
-              </span>
-              <span className="txt">
-                <b className="mono">{item.name}</b>
-                <small>{item.custom ? 'Set · value hidden' : 'Hermes key · value hidden'}</small>
-              </span>
-              {confirm === item.name ? (
-                <span className="end secret-del">
-                  <button className="btn sm ghost" onClick={() => setConfirm('')} type="button">
-                    Keep
-                  </button>
-                  <button
-                    className="btn sm danger"
-                    onClick={() =>
-                      void deleteSecret(bot.name, item.name)
-                        .then(() => toast(`Deleted ${item.name}`))
-                        .catch(error => toast(String(error.message || error), 'bad'))
-                        .finally(() => {
-                          setConfirm('')
-                          void refreshSecretNames(bot.name)
-                        })
-                    }
-                    type="button"
-                  >
-                    Delete
-                  </button>
+          <>
+            {names.map(row)}
+            {groups.setting.length ? (
+              <button className="setup-row secret-fold" onClick={() => setShowSettings(!showSettings)} type="button">
+                <span className="txt">
+                  <small>
+                    {showSettings ? 'Hide' : 'Show'} {groups.setting.length} Hermes setting{groups.setting.length === 1 ? '' : 's'} (not secrets)
+                  </small>
                 </span>
-              ) : (
-                <button aria-label={`Delete ${item.name}`} className="icon-btn xs ghost" onClick={() => setConfirm(item.name)} title="Delete" type="button">
-                  <Icon name="trash" size={14} />
-                </button>
-              )}
-            </div>
-          ))
+              </button>
+            ) : null}
+            {showSettings ? groups.setting.map(row) : null}
+          </>
         )}
       </div>
     </section>

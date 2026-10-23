@@ -849,7 +849,7 @@ function refusalReason(auth, groupProfile) {
   return 'a token this app does not issue for this route (an old registration?)'
 }
 
-function startServer({ onLog, token: keepToken } = {}) {
+function startServer({ onLog, token: keepToken, port: keepPort } = {}) {
   if (server) return Promise.resolve({ port, token })
   logFn = onLog || logFn
   // A saved token keeps Hermes' registration valid across app restarts (its connection is long-lived).
@@ -921,11 +921,21 @@ function startServer({ onLog, token: keepToken } = {}) {
         }
       })
     })
+    // Reuse last run's port when it's free: Hermes keeps the registered URL, so a new random port
+    // left it retrying a dead one ("Failed to connect to MCP server … Connect call failed") until
+    // the app re-registered. Falls back to any free port.
+    const wanted = Number.isInteger(keepPort) && keepPort > 1024 && keepPort < 65536 ? keepPort : 0
+    let retried = false
     server.on('error', error => {
+      if (wanted && !retried && error && error.code === 'EADDRINUSE') {
+        retried = true
+        server.listen(0, '127.0.0.1')
+        return
+      }
       lastError = String(error && error.message)
       reject(error)
     })
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(wanted, '127.0.0.1', () => {
       port = server.address().port
       log('local computer-use MCP server listening on 127.0.0.1:' + port)
       resolve({ port, token })

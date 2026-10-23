@@ -27,12 +27,18 @@ export interface McpInfo {
   transport: string
 }
 
+/** Every mode Hermes's terminal guard enforces (hermes_cli/approval_mode.py VALID_APPROVAL_MODES). */
 export type Approvals = 'manual' | 'off' | 'smart'
+
+/** What the panel shows: a real Hermes mode, or a value Hermes didn't hand back cleanly. Never guessed. */
+export type ApprovalsState = Approvals | 'unknown'
 
 export interface BotConfig {
   model: { provider: string; model: string }
   reasoning: string
-  approvals: Approvals
+  approvals: ApprovalsState
+  /** The raw value when `approvals` is 'unknown', so the panel can say what Hermes actually has. */
+  approvalsRaw?: string
   cwd: string
   toolsets: ToolsetInfo[]
   /** False until the tool list has been saved once; before that Hermes uses its own defaults. */
@@ -107,12 +113,27 @@ export function reasoningLabel(value: string) {
   return REASONING_CHOICES.find(choice => choice.id === value.toLowerCase())?.label || (value ? value[0].toUpperCase() + value.slice(1) : 'Default')
 }
 
-export const approvalLabel = (value: Approvals) => APPROVAL_CHOICES.find(choice => choice.id === value)?.label || 'Ask me'
+/** The label for a mode. Anything Hermes doesn't define reads as "Unknown", never as the safe-looking "Ask me". */
+export const approvalLabel = (value: ApprovalsState | string | undefined) =>
+  APPROVAL_CHOICES.find(choice => choice.id === value)?.label || 'Unknown'
 
-function normalizeApprovals(value: unknown): Approvals {
-  const word = String(value ?? '').toLowerCase()
+/**
+ * Reads `approvals.mode` the way Hermes does (tools/approval_context._normalize_approval_mode): YAML 1.1
+ * turns a bare `off` into false, so booleans map to off/manual; a missing value is Hermes's default,
+ * manual. Any other value is reported as 'unknown' instead of being dressed up as "Ask me".
+ */
+export function normalizeApprovals(value: unknown): ApprovalsState {
+  if (value === false) {
+    return 'off'
+  }
 
-  return word === 'off' || word === 'smart' ? word : 'manual'
+  if (value === true || value === undefined || value === null || value === '') {
+    return 'manual'
+  }
+
+  const word = String(value).trim().toLowerCase()
+
+  return word === 'manual' || word === 'smart' || word === 'off' ? word : 'unknown'
 }
 
 /** Shows a change straight away; the real value arrives when the save finishes (a failure reloads it). */
@@ -142,17 +163,26 @@ export async function loadBotConfig(name: string, force = false) {
   }
 
   try {
-    const [described, full] = await Promise.all([
+    const [described, full, mode] = await Promise.all([
       gateway.request<any>('profiles.describe', { name, profile: name }, 30_000),
-      gateway.request<any>('config.get', { key: 'full', profile: name }, 30_000).catch(() => null)
+      gateway.request<any>('config.get', { key: 'full', profile: name }, 30_000).catch(() => null),
+      // The mode Hermes's guard actually enforces (its own normalisation), not our reading of the YAML.
+      gateway.request<any>('config.get', { key: 'approvals.mode', profile: name }, 30_000).catch(() => null)
     ])
 
     const cfg = (full?.config && typeof full.config === 'object' ? full.config : {}) as Record<string, any>
+    const rawMode = mode && 'value' in mode ? mode.value : cfg.approvals?.mode
+    const approvals = normalizeApprovals(rawMode)
+
+    if (approvals === 'unknown') {
+      console.warn(`[botconfig] ${name}: unrecognised approvals.mode ${JSON.stringify(rawMode)}`)
+    }
 
     put(name, {
       model: { provider: String(described?.model?.provider || ''), model: String(described?.model?.default || '') },
       reasoning: String(cfg.agent?.reasoning_effort ?? ''),
-      approvals: normalizeApprovals(cfg.approvals?.mode),
+      approvals,
+      ...(approvals === 'unknown' ? { approvalsRaw: String(rawMode) } : {}),
       cwd: String(cfg.terminal?.cwd ?? ''),
       toolsets: Array.isArray(described?.toolsets) ? described.toolsets : [],
       toolsetsPinned: Boolean(described?.toolsets_pinned),
@@ -228,6 +258,12 @@ export async function setApprovals(name: string, mode: Approvals) {
 
   await gateway.request('config.set', { key: 'approvals.mode', value: mode, profile: name })
   await loadBotConfig(name, true)
+
+  const after = $botConfig.get()[name]
+
+  if (isLoaded(after) && after.approvals !== mode) {
+    throw new Error(`Hermes kept approvals at "${approvalLabel(after.approvals)}" instead of "${approvalLabel(mode)}".`)
+  }
 }
 
 export async function setReasoning(name: string, level: string) {

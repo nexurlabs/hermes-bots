@@ -36,6 +36,16 @@ import { Icon } from './icons'
 
 type Run = (work: () => Promise<unknown>) => Promise<boolean>
 
+/** The toast after Run now: says where the result went, matching the card's delivery note. */
+export function ranToast(routine: Routine, who: string) {
+  const target = routine.deliver.toLowerCase()
+
+  if (target.split(',').some(part => part.trim().startsWith('bot-chat'))) return `${routine.name} ran. The result is in ${who}'s chat.`
+  if (target === 'local' || !target) return `${routine.name} ran. The result stays on Hermes.`
+
+  return `${routine.name} ran. The result went to ${routine.deliver}.`
+}
+
 function deliveryNote(routine: Routine, who: string) {
   const target = routine.deliver.toLowerCase()
 
@@ -57,7 +67,7 @@ function RoutineCard({ name, routine, save, onEdit }: { name: string; routine: R
   const hooks = useStore($hooks)
   const event = isEventSchedule(routine.schedule)
   const hook = event ? hookFor(hooks, name, routine.id) : undefined
-  const next = paused ? 'Paused' : done ? 'Finished' : event ? '' : routine.nextRunAt ? `Next: ${whenText(routine.nextRunAt)}` : ''
+  const next = paused ? 'Paused' : done ? 'Finished' : event ? '' : routine.nextRunAt ? (Date.parse(routine.nextRunAt) <= Date.now() ? 'Due now, waiting for Hermes…' : `Next: ${whenText(routine.nextRunAt)}`) : ''
 
   return (
     <div className="routine" data-paused={paused || done || undefined}>
@@ -119,7 +129,7 @@ function RoutineCard({ name, routine, save, onEdit }: { name: string; routine: R
                 void runNow(name, routine)
                   .then(outcome =>
                     toast(
-                      outcome === 'done' ? `${routine.name} ran. The result goes to ${bot?.display || name}'s chat.` : `${routine.name} is still running on Hermes.`,
+                      outcome === 'done' ? ranToast(routine, bot?.display || name) : `${routine.name} is still running on Hermes.`,
                       'good'
                     )
                   )

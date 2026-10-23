@@ -17,6 +17,7 @@ import { native } from './native'
 import { hostHttp } from './hosts'
 import { $active } from './store'
 import type { SecretCard } from './types'
+import { secretKind, type SecretName } from './secret-kinds'
 
 export const NAME_RE = /^[A-Z_][A-Z0-9_]*$/
 const MAX_VALUE = 8192
@@ -130,20 +131,24 @@ export async function saveSecret(profile: string, name: string, value: string) {
 }
 
 /** Names of the env vars set in the bot's profile (never values). */
-export async function listSecretNames(profile: string): Promise<{ name: string; custom: boolean }[]> {
+export async function listSecretNames(profile: string): Promise<SecretName[]> {
   const res = await api('GET', withProfile('api/env', profile))
 
   if (!res.ok) {
     throw new Error(res.status === 404 ? "This Hermes doesn't have the env API." : `Couldn't list secrets: ${detail(res)}`)
   }
 
-  return Object.entries((res.json || {}) as Record<string, { is_set?: boolean; custom?: boolean }>)
+  return Object.entries((res.json || {}) as Record<string, { is_set?: boolean; custom?: boolean; is_password?: boolean }>)
     .filter(([, row]) => row?.is_set)
-    .map(([name, row]) => ({ name, custom: !!row.custom }))
+    .map(([name, row]) => ({ name, custom: !!row.custom, ...(typeof row.is_password === 'boolean' ? { password: row.is_password } : {}) }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export async function deleteSecret(profile: string, name: string) {
+  if (secretKind({ name, custom: false }) === 'app') {
+    throw new Error(`${name} is managed by NexurBots and can't be deleted here.`)
+  }
+
   const res = await api('DELETE', withProfile('api/env', profile), { key: name, profile })
 
   if (!res.ok && res.status !== 404) {
@@ -182,7 +187,7 @@ export function findKey(text: string): null | { key: string; name: string } {
 // ── the bot's Details list (names only) ─────────────────────────────────────
 export interface SecretList {
   loading: boolean
-  names: { name: string; custom: boolean }[]
+  names: SecretName[]
   error?: string
 }
 
