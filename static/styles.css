@@ -799,7 +799,7 @@ input, textarea { font: inherit; color: inherit; }
   font-size: 14px; font-weight: 600; pointer-events: none; animation: fade .15s ease both;
 }
 .attach-row { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 6px 8px; animation: rise .25s var(--ease-out) both; }
-.attach-chip { position: relative; display: flex; align-items: center; gap: 9px; height: 56px; border-radius: 14px; background: var(--composer); overflow: hidden; }
+.attach-chip { position: relative; display: flex; align-items: center; gap: 9px; height: 56px; flex: 0 0 auto; border-radius: 14px; background: var(--composer); border: 1px solid rgba(255,255,255,.12); overflow: hidden; }
 .attach-chip[data-kind='image'] { width: 56px; }
 .attach-chip[data-kind='image'] img { width: 100%; height: 100%; object-fit: cover; }
 .attach-chip[data-kind='file'] { padding: 0 34px 0 10px; max-width: 240px; }
@@ -851,6 +851,9 @@ input, textarea { font: inherit; color: inherit; }
 .pane > header h3 { margin: 0; font-size: 16px; font-weight: 700; }
 .pane > header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 52ch; }
 .pane-actions { display: flex; justify-content: flex-end; }
+/* Stays in view while a long list scrolls, so picking a row and saving it never needs a scroll. */
+.pane-actions.sticky { position: sticky; bottom: 0; z-index: 2; align-items: center; gap: 10px; padding: 10px 0; background: var(--bg, #0b0b0b); border-top: 1px solid rgba(255, 255, 255, .06); }
+.pane-actions.sticky .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .75; }
 .pane-tools { display: flex; gap: 8px; align-items: center; }
 .pane-tools .input { flex: 1; min-width: 0; }
 .pane code { padding: 1px 6px; border-radius: 6px; background: #1d1d1d; font-family: 'Cascadia Code', Consolas, monospace; font-size: 12px; }
@@ -1175,6 +1178,11 @@ input[type='time'].input, input[type='datetime-local'].input { color-scheme: dar
 .key-warn-actions { display: flex; flex-direction: column; gap: 4px; }
 .secrets .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
 .secret-del { display: inline-flex; gap: 4px; }
+.secrets .secret-row .txt { min-width: 0; flex: 1 1 auto; overflow: hidden; }
+.secrets .secret-row .mono { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.secrets .secret-row > .end, .secrets .secret-row > .icon-btn { flex: 0 0 auto; margin-left: auto; }
+.secrets .secret-row.setting, .secrets .secret-row.app { opacity: .8; }
+.secrets .secret-fold { width: 100%; background: none; border: 0; text-align: left; cursor: pointer; color: inherit; }
 
 /* Sign-in handoff (request_user_help) */
 .help-card { width: min(400px, 100%); padding: 10px 12px; border-radius: 14px; background: var(--bubble); border: 1px solid #2c2c2c; display: grid; gap: 8px; }
@@ -1432,11 +1440,11 @@ body[data-demo-flash] .msg.flash .bubble { animation: none; box-shadow: 0 0 0 2p
 .install-cmd { display: flex; align-items: center; gap: 8px; background: #111; border-radius: 8px; padding: 8px 10px; }
 .install-cmd code { flex: 1; font-size: 12px; word-break: break-all; user-select: all; }
 /* "No AI provider" notice (non-blocking) */
-.provider-notice { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 10px; max-width: min(640px, 92vw); padding: 8px 12px; border-radius: 10px; background: #1f1a0e; border: 1px solid #4a3a14; color: #fde68a; font-size: 12.5px; line-height: 1.4; }
+.provider-notice { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 10px; max-width: min(640px, 92vw); padding: 8px 12px; border-radius: 10px; background: #1f1a0e; border: 1px solid #4a3a14; color: #fde68a; font-size: 12.5px; line-height: 1.4; }
 .provider-notice code { background: #00000040; padding: 0 4px; border-radius: 4px; }
 
 /* Composer thinking-effort slider (Off … Max), next message only */
-.think-slider { position: relative; align-self: center; flex-shrink: 0; width: 64px; height: 26px; display: flex; align-items: center; margin: 0 2px; }
+.think-slider { position: relative; align-self: flex-end; flex-shrink: 0; width: 64px; height: 36px; display: flex; align-items: center; margin: 0 2px; }
 .think-slider input { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; margin: 0; cursor: pointer;
   background: linear-gradient(to right, var(--accent) 0 var(--pct), #3a3a3a var(--pct) 100%); }
 .think-slider[data-default] input { background: linear-gradient(to right, #6a6a6a 0 var(--pct), #333 var(--pct) 100%); }
@@ -1446,3 +1454,4 @@ body[data-demo-flash] .msg.flash .bubble { animation: none; box-shadow: 0 0 0 2p
 .think-tip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .12s;
   padding: 3px 8px; border-radius: 6px; background: #1f1f1f; border: 1px solid #2e2e2e; color: #e8e8e8; font-size: 11.5px; }
 .think-slider:hover .think-tip, .think-slider[data-show] .think-tip { opacity: 1; }
+.msg-stopped { display: block; margin-top: 6px; font-size: 11.5px; color: var(--muted, #9a9a9a); font-style: italic; }

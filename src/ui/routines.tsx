@@ -57,7 +57,7 @@ function RoutineCard({ name, routine, save, onEdit }: { name: string; routine: R
   const hooks = useStore($hooks)
   const event = isEventSchedule(routine.schedule)
   const hook = event ? hookFor(hooks, name, routine.id) : undefined
-  const next = paused ? 'Paused' : done ? 'Finished' : event ? '' : routine.nextRunAt ? `Next: ${whenText(routine.nextRunAt)}` : ''
+  const next = paused ? 'Paused' : done ? 'Finished' : event ? '' : routine.nextRunAt ? (Date.parse(routine.nextRunAt) <= Date.now() ? 'Due now, waiting for Hermes…' : `Next: ${whenText(routine.nextRunAt)}`) : ''
 
   return (
     <div className="routine" data-paused={paused || done || undefined}>

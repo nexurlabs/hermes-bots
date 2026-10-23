@@ -9,6 +9,7 @@
 import { atom } from 'nanostores'
 
 import { gateway } from './gateway'
+import { native } from './native'
 import type { MsgAttachment } from './types'
 
 /** Hermes accepts up to 25 MB per picture; keep every file under the same ceiling. */
@@ -83,7 +84,15 @@ async function thumbnail(file: File): Promise<string | undefined> {
 
     return canvas.toDataURL('image/jpeg', 0.82)
   } catch {
-    return undefined
+    // Some Linux GPU setups can't decode with createImageBitmap: a small image is shown as-is instead.
+    if (file.size > 4 * 1024 * 1024) return undefined
+
+    return new Promise(resolve => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : undefined)
+      reader.onerror = () => resolve(undefined)
+      reader.readAsDataURL(file)
+    })
   }
 }
 
@@ -338,11 +347,28 @@ export async function blobOf(id: string): Promise<Blob | null> {
 }
 
 /** Saves a stored attachment to the person's Downloads folder (or wherever their browser puts it). */
-export async function downloadAttachment(item: Pick<MsgAttachment, 'id' | 'name'>) {
+/**
+ * Saves a local copy. In the app this is the native Save dialog, titled with the real file name
+ * (an <a download> of a blob: URL made the dialog show "blob:file:///…"). Resolves 'saved' only once
+ * the file is written, 'canceled' if the dialog was closed, 'missing' when there's no local copy.
+ */
+export async function downloadAttachment(item: Pick<MsgAttachment, 'id' | 'name'>): Promise<'saved' | 'canceled' | 'missing'> {
   const blob = await blobOf(item.id)
 
   if (!blob) {
-    return false
+    return 'missing'
+  }
+
+  if (native.saveFile) {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(blob)
+    })
+    const res = await native.saveFile(item.name, dataUrl)
+
+    return res && res.ok ? 'saved' : 'canceled'
   }
 
   const url = URL.createObjectURL(blob)
@@ -354,7 +380,7 @@ export async function downloadAttachment(item: Pick<MsgAttachment, 'id' | 'name'
   link.remove()
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
 
-  return true
+  return 'saved'
 }
 
 /** Finds the local copy for a reloaded message's attachment (by the name Hermes stored it under). */

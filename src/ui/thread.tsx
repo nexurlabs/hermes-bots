@@ -601,7 +601,7 @@ export function Attachments({ items, scope }: { items: MsgAttachment[]; scope?: 
             className="att-file"
             disabled={!copy}
             key={att.id}
-            onClick={() => copy && void downloadAttachment(copy).then(ok => !ok && toast('That file is no longer on this device', 'bad'))}
+            onClick={() => copy && void downloadAttachment(copy).then(res => res === 'missing' && toast('That file is no longer on this device', 'bad'))}
             title={copy ? `Save ${att.name}` : att.name}
             type="button"
           >
@@ -1068,6 +1068,7 @@ export function Thread({ messages, botFor, group, empty, typing, footer, scope, 
                 onContextMenu={event => openContextMenu(event, bubbleMenu(msg.text, bot?.display || 'Bot', bot?.name))}
               >
                 <Markdown streaming={msg.streaming} text={msg.text} />
+                {msg.stopped ? <small className="msg-stopped">Stopped · reply was interrupted</small> : null}
               </div>
               {msg.streaming ? null : <BubbleActions react={onReact ? msg : undefined} scope={scope} speak={msg.id} text={msg.text} thread={onThread && msg.threadId ? () => onThread(msg) : undefined} who={bot?.display || 'Bot'} member={group ? bot?.name : undefined} />}
               {onReact && picker === msg.id && !msg.streaming ? <ReactPicker msg={msg} onReact={onReact} /> : null}
@@ -1467,9 +1468,9 @@ export function Composer({
       {files.length ? (
         <div className="attach-row">
           {files.map(item => (
-            <div className="attach-chip" data-kind={item.kind} key={item.id} title={`${item.name} · ${humanSize(item.size)}`}>
-              {item.kind === 'image' && item.thumb ? <img alt="" src={item.thumb} /> : <FileGlyph name={item.name} />}
-              {item.kind === 'file' ? (
+            <div className="attach-chip" data-kind={item.kind === 'image' && item.thumb ? 'image' : 'file'} data-testid="attach-chip" key={item.id} title={`${item.name} · ${humanSize(item.size)}`}>
+              {item.kind === 'image' && item.thumb ? <img alt={item.name} src={item.thumb} /> : <FileGlyph name={item.name} />}
+              {item.kind !== 'image' || !item.thumb ? (
                 <span>
                   <b>{item.name}</b>
                   <small>{humanSize(item.size)}</small>

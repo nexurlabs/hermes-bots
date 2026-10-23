@@ -249,7 +249,9 @@ export function directoryText(input: DirectoryInput): string {
     ...input.facts,
     input.canRemember
       ? `To remember something about ${them} for the whole team, save it with your memory tool (target "user"); the app shares it with every bot. Keep notes only you need in target "memory".`
-      : `Your memory tool is off, so if ${them} tells you something worth remembering, suggest they add it under Shared memory in the app.`,
+      : // Hermes's profile snapshot reports the toolsets of its "cli" platform, which can differ from
+        // the session's own tools, so "off" here isn't certain: never tell the bot its memory is off.
+        `If your memory tool is available, save things worth remembering about ${them} with it (target "user"); if it isn't, suggest they add it under Shared memory in the app.`,
     input.memoryEdits.length
       ? `${them[0].toUpperCase()}${them.slice(1)} recently edited your saved memory in the app (your memory as shown at the start of this chat may be older): ${input.memoryEdits.join('; ')}.`
       : '',

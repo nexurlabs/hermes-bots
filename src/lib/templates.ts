@@ -460,7 +460,7 @@ export async function buildTemplate(name: string, opts: ExportOptions): Promise<
     },
     persona: { soul },
     model: { provider: cfg.model.provider, model: cfg.model.model, ...(cfg.reasoning ? { reasoning: cfg.reasoning } : {}) },
-    approvals: cfg.approvals,
+    approvals: cfg.approvals === 'unknown' ? 'manual' : cfg.approvals,
     toolsets: { pinned: cfg.toolsetsPinned, enabled: cfg.toolsets.filter(t => t.enabled).map(t => t.name) },
     skills: { enabled: cfg.skills.filter(s => s.enabled).map(s => s.name), disabled: cfg.skills.filter(s => !s.enabled).map(s => s.name), bundled },
     mcpServers,

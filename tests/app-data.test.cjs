@@ -21,10 +21,10 @@ function used(dir, settings = '{"connections":[]}') {
 
 test('moves the old folder, with everything in it, when the new one does not exist yet', () => {
   const { current, old } = appData()
-  used(old, '{"user":{"name":"Rishabh"}}')
+  used(old, '{"user":{"name":"Sam"}}')
 
   assert.equal(adoptOldDataFolder(current, old), 'moved')
-  assert.equal(fs.readFileSync(path.join(current, 'settings.json'), 'utf8'), '{"user":{"name":"Rishabh"}}')
+  assert.equal(fs.readFileSync(path.join(current, 'settings.json'), 'utf8'), '{"user":{"name":"Sam"}}')
   assert.equal(fs.existsSync(path.join(current, 'hooks.json')), true)
   assert.equal(fs.existsSync(old), false)
 })

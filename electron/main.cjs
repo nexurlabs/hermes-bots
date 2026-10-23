@@ -16,6 +16,8 @@ const { explainLocalStartError } = require('./local-start.cjs')
 const { checkKeyFile, explainKeyError } = require('./ssh-key.cjs')
 const { adoptOldDataFolder, OLD_NAME } = require('./app-data.cjs')
 const tokenStore = require('./token-store.cjs')
+const { ensureGateway } = require('./gateway-ensure.cjs')
+const { tokenCopyDirFor } = require('./token-dir.cjs')
 
 // Before anything reads settings: the data folder used to be named after Hermes Bots (see app-data.cjs).
 if (process.env.HERMES_BOTS_SMOKE !== '1') {
@@ -248,6 +250,13 @@ ipcMain.handle('local:start', async () => {
   ownedLocal = { baseUrl: `http://127.0.0.1:${port}`, token: pending.token }
   syncThisPcMcp({ baseUrl: ownedLocal.baseUrl, hermesToken: pending.token, cfg: null }).catch(() => {})
   return ownedLocal
+})
+
+// Routines only fire while a Hermes gateway runs; start one that doesn't idle-exit (see gateway-ensure.cjs).
+ipcMain.handle('hermes:ensureGateway', async () => {
+  const result = await ensureGateway({ command: hermesCommand(), home: hermesHome() })
+  dbg(`gateway ensure: ${result.state}${result.reason ? ` (${result.reason})` : ''}`)
+  return result
 })
 
 // ── machines already set up in Hermes Desktop ─────────────────────────────
@@ -841,8 +850,9 @@ async function checkThisPc(who) {
 }
 
 // Where the copy of the This PC token lives outside the data folder (token-store.cjs). None in the CI smoke test.
+// Windows only: the copy is DPAPI-sealed (see token-dir.cjs).
 const tokenCopyDir = () =>
-  process.env.HERMES_BOTS_SMOKE === '1' ? '' : path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), app.getName())
+  tokenCopyDirFor({ platform: process.platform, env: process.env, home: os.homedir(), name: app.getName(), smoke: process.env.HERMES_BOTS_SMOKE === '1' })
 
 // The This PC token, decided once per run: the one in settings, else the copy outside the data folder,
 // else none (startServer makes a new one). Same token every launch, so Hermes processes that are still
@@ -874,8 +884,9 @@ function keepTokenCopy(token) {
 async function syncThisPcMcp({ baseUrl, hermesToken, cfg }) {
   try {
     const savedToken = await thisPcSavedToken()
-    const { port: mcpPort, token: mcpToken } = await localComputer.startServer({ onLog: dbg, token: savedToken })
+    const { port: mcpPort, token: mcpToken } = await localComputer.startServer({ onLog: dbg, token: savedToken, port: readSettings().thisPcPort })
     if (mcpToken !== unseal(readSettings().thisPcToken || '')) writeSettings({ ...readSettings(), thisPcToken: seal(mcpToken) })
+    if (readSettings().thisPcPort !== mcpPort) writeSettings({ ...readSettings(), thisPcPort: mcpPort })
     keepTokenCopy(mcpToken)
     const mcpUrl = cfg ? `http://127.0.0.1:${openReverseTunnel(cfg, mcpPort)}/mcp` : `http://127.0.0.1:${mcpPort}/mcp`
     const old = thisPcLinks.get(baseUrl)
@@ -1180,7 +1191,7 @@ const bytesOf = dataUrl => Buffer.from(String(dataUrl || '').replace(/^data:[^,]
 
 ipcMain.handle('file:save', async (event, { name, dataUrl }) => {
   const win = BrowserWindow.fromWebContents(event.sender)
-  const result = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('downloads'), safeFileName(name)) })
+  const result = await dialog.showSaveDialog(win, { title: `Save ${safeFileName(name)}`, defaultPath: path.join(app.getPath('downloads'), safeFileName(name)) })
   if (result.canceled || !result.filePath) return { ok: false, canceled: true }
   await fs.promises.writeFile(result.filePath, bytesOf(dataUrl))
   return { ok: true, path: result.filePath }
@@ -1241,7 +1252,10 @@ function createWindow() {
     backgroundColor: '#070707',
     title: 'NexurBots',
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#00000000', symbolColor: '#d6d6d6', height: 48 },
+    // Linux draws the overlay buttons itself and can't composite a transparent overlay: it showed a
+    // blank grey box with no visible controls. Give it the app's opaque background so the
+    // minimize/maximize/close glyphs render (Windows/macOS keep the transparent overlay).
+    titleBarOverlay: { color: process.platform === 'linux' ? '#070707' : '#00000000', symbolColor: '#d6d6d6', height: 48 },
     icon: path.join(__dirname, 'icon.png'),
     show: false,
     webPreferences: {

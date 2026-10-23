@@ -97,7 +97,7 @@ export function Library({ messages, scope }: { messages: ChatMsg[]; scope: strin
   const total = pics.length + files.length + links.length
 
   const save = (item: LibraryItem) =>
-    void downloadAttachment(item).then(ok => (ok ? toast(`Saved ${item.name}`) : toast('That file is no longer on this device', 'bad')))
+    void downloadAttachment(item).then(res => (res === 'saved' ? toast(`Saved ${item.name}`) : res === 'missing' ? toast('That file is no longer on this device', 'bad') : undefined))
 
   const remove = (item: LibraryItem) => void removeFromLibrary(scope, item.id).then(() => toast('Removed from this device'))
 

@@ -35,6 +35,8 @@ interface NativeBridge {
   readText?(): Promise<string>
   pickImage(): Promise<null | string>
   toggleMaximize(): Promise<void>
+  /** Starts this computer's Hermes gateway (the routine scheduler) without its idle exit. */
+  ensureGateway?(): Promise<{ ok: boolean; state: string; reason: string }>
   computerGetState(): Promise<{ running: boolean; port: number; granted: boolean; lastError?: string }>
   computerSetGranted(value: boolean): Promise<{ running: boolean; port: number; granted: boolean; lastError?: string }>
   computerGetLastShot(): Promise<null | { dataUrl: string; at: number }>

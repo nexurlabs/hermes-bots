@@ -13,7 +13,7 @@ import { atom } from 'nanostores'
 import { gateway } from './gateway'
 import { native } from './native'
 import { hostHttp } from './hosts'
-import { $active } from './store'
+import { $active, $profiles } from './store'
 
 export interface Routine {
   id: string
@@ -83,6 +83,90 @@ function patch(name: string, id: string, change: Partial<Routine> | null) {
   }
 }
 
+/** What the person reads when Hermes's scheduler is down (Hermes's own warning is written for the bot). */
+export const SCHEDULER_DOWN_NOTE =
+  "Hermes's scheduler isn't running, so routines won't fire on their own yet. Open Hermes on its machine (or run `hermes gateway start` there) to turn it on."
+const SCHEDULER_STARTING_NOTE = "Hermes's scheduler wasn't running; starting it now so routines fire on time."
+
+/** Hermes reports `gateway_running: false` when no gateway (its cron ticker) is up. */
+export const schedulerDown = (result: any) => result?.gateway_running === false
+
+/** Live = would fire later: not paused, not finished. */
+export const hasLiveRoutines = (list: Routine[]) => list.some(r => !isPaused(r) && r.state !== 'completed')
+
+/** Test seam for the scheduler start (the Electron bridge in the app). */
+let ensureImpl: (() => Promise<{ ok: boolean; state: string }>) | null = null
+
+export function setEnsureGatewayForTests(fn: typeof ensureImpl) {
+  ensureImpl = fn
+}
+
+let ensuring: Promise<boolean> | null = null
+
+/**
+ * Starts Hermes's gateway (which runs the cron ticker) when it isn't running. Only this computer's
+ * Hermes can be started from here; for another machine the note asks the person to start it there.
+ * Hermes's `gateway ensure` starts it without the idle exit, so it stays up while the app runs.
+ */
+export async function ensureScheduler(): Promise<boolean> {
+  const run = ensureImpl || ($active.get()?.kind === 'local' && native.ensureGateway ? () => native.ensureGateway!() : null)
+
+  if (!run) {
+    $schedulerNote.set(SCHEDULER_DOWN_NOTE)
+
+    return false
+  }
+
+  if (!ensuring) {
+    $schedulerNote.set(SCHEDULER_STARTING_NOTE)
+    ensuring = run()
+      .then(res => Boolean(res && res.ok))
+      .catch(() => false)
+      .then(ok => {
+        $schedulerNote.set(ok ? '' : SCHEDULER_DOWN_NOTE)
+
+        return ok
+      })
+      .finally(() => {
+        ensuring = null
+      })
+  }
+
+  return ensuring
+}
+
+// Keep-alive: while any bot has routines that will fire, re-check the scheduler every few minutes
+// (a gateway can still be stopped by hand or by `hermes update`), and refresh a card whose "Next"
+// time has passed so it never shows a stale time.
+let keepAlive: ReturnType<typeof setInterval> | undefined
+const KEEPALIVE_MS = 60_000
+let lastSchedulerCheck = 0
+
+export function routinesTick(now = Date.now()) {
+  const due: string[] = []
+  const live: string[] = []
+
+  for (const [name, state] of Object.entries($routines.get())) {
+    if (!isRoutineList(state) || !hasLiveRoutines(state)) continue
+    live.push(name)
+    if (state.some(r => !isPaused(r) && r.nextRunAt && Date.parse(r.nextRunAt) <= now)) due.push(name)
+  }
+
+  const recheck = live.length && now - lastSchedulerCheck >= 4 * 60_000
+  const names = recheck ? live : due
+
+  if (recheck) lastSchedulerCheck = now
+  for (const name of names) void loadRoutines(name, true)
+
+  return names
+}
+
+function startKeepAlive() {
+  if (keepAlive || preview || typeof setInterval === 'undefined') return
+  keepAlive = setInterval(() => routinesTick(), KEEPALIVE_MS)
+  ;(keepAlive as any)?.unref?.()
+}
+
 async function manage(name: string, params: Record<string, unknown>) {
   const result = await gateway.request<any>('cron.manage', { profile: name, ...params }, 60_000)
 
@@ -111,8 +195,15 @@ export async function loadRoutines(name: string, force = false) {
   try {
     const result = await manage(name, { action: 'list', include_disabled: true })
     const rows = Array.isArray(result?.jobs) ? result.jobs : []
-    put(name, rows.map(fromRow))
-    $schedulerNote.set(result?.gateway_running === false && result?.warning ? String(result.warning) : '')
+    const list = rows.map(fromRow)
+    put(name, list)
+    startKeepAlive()
+
+    if (schedulerDown(result) && hasLiveRoutines(list)) {
+      if (await ensureScheduler()) void manage(name, { action: 'list', include_disabled: true }).then(r => put(name, (Array.isArray(r?.jobs) ? r.jobs : []).map(fromRow))).catch(() => undefined)
+    } else if (!ensuring) {
+      $schedulerNote.set(schedulerDown(result) ? SCHEDULER_DOWN_NOTE : '')
+    }
   } catch (error) {
     put(name, { error: String((error as Error).message || error) })
   }
@@ -179,7 +270,11 @@ export async function createRoutine(input: NewRoutine): Promise<string> {
   })
   await loadRoutines(input.bot, true)
 
-  return result?.gateway_running === false && result?.warning ? String(result.warning) : ''
+  if (schedulerDown(result) && !(await ensureScheduler())) {
+    return `Routine added, but ${SCHEDULER_DOWN_NOTE.charAt(0).toLowerCase()}${SCHEDULER_DOWN_NOTE.slice(1)}`
+  }
+
+  return ''
 }
 
 /** A routine parked on a schedule that never comes due, for event routines; returns its job id. */
@@ -369,6 +464,20 @@ export async function updateRoutine(name: string, routine: Routine, changes: Rou
   await dashboard('PUT', jobPath(name, routine.id), { updates })
   await loadRoutines(name, true)
 }
+
+// Every bot's routines are read once its profile shows up, so a scheduler that's down is started even
+// when nobody opens the Routines pane (a routine that silently never fires is the failure mode).
+const seenProfiles = new Set<string>()
+
+$profiles.listen(rows => {
+  if (preview) return
+  for (const row of rows || []) {
+    const name = String((row as { name?: string })?.name || '')
+    if (!name || name.includes('@') || seenProfiles.has(name)) continue
+    seenProfiles.add(name)
+    void loadRoutines(name)
+  }
+})
 
 // Hermes signals jobs.json changes (edits and scheduler ticks); refresh what's on screen.
 let changeTimer: ReturnType<typeof setTimeout> | undefined

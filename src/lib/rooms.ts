@@ -689,6 +689,7 @@ function buildPrompt(room: Room, bot: Bot, fresh: RoomEntry[], why: Why, marks: 
     bot.lead && why !== 'lead' ? 'As the Lead, hand work to a teammate by @mentioning them when they are better placed.' : '',
     rules ? `House rules from the user for this group: ${rules}` : '',
     'You share this room with the others and see everything said in it, but not anyone\'s private 1:1 chats. Reply with your message to the group only — no speaker prefix. Keep it conversational.',
+    'This is a group chat, not a first meeting: never offer onboarding, a profile of the user, or /help tips here.',
     'Only speak when you add something new: an answer, a fact, a decision, or work you did. Don\'t repeat, agree with, or sum up what someone already said. @mention a teammate only when you want them to act next. If you have nothing to add, reply exactly: (pass)',
     '\u0000',
     'New messages since your last turn:',
@@ -795,14 +796,32 @@ function pendingPass(text: string) {
 // A pass is a control token, not a reply. Two shapes must never render: an assistant segment that
 // is only a pass (caught by the shared PASS matcher), and a pass marker tucked onto a longer reply.
 export function replyText(messages: ChatMsg[], display: string) {
-  return messages
+  return stripOnboarding(messages
     .filter(msg => msg.role === 'assistant')
     .map(msg => msg.text.trim())
     .filter(Boolean)
     .filter(text => !PASS.test(text))
     .join('\n\n')
     .replace(/\s*[(\[]\s*pass\s*[)\]]?\s*\.?\s*$/i, '')
-    .replace(/^\s*(?:\*\*)?[^:\n]{1,40}(?:\*\*)?:\s+(?=\S)/, match => (match.toLowerCase().includes(display.toLowerCase()) ? '' : match))
+    .replace(/^\s*(?:\*\*)?[^:\n]{1,40}(?:\*\*)?:\s+(?=\S)/, match => (match.toLowerCase().includes(display.toLowerCase()) ? '' : match)))
+}
+
+/**
+ * Hermes adds a one-time first-contact note to a profile's very first turn ("Type /help for
+ * commands", offer to build a short profile of the user). When that first turn is a group turn the
+ * offer leaked into the room. The prompt tells the bot not to, and any paragraph that still carries
+ * it is dropped from the group copy.
+ */
+const ONBOARDING_LEAK = /\/help for (?:a list of )?commands|\bshort profile\b|build (?:a|your) (?:short )?profile (?:of|about) you/i
+
+export function stripOnboarding(text: string) {
+  if (!ONBOARDING_LEAK.test(text)) return text
+
+  return text
+    .split(/\n{2,}/)
+    .filter(part => !ONBOARDING_LEAK.test(part))
+    .join('\n\n')
+    .trim()
 }
 
 function hasTypingMember(turns: Record<string, RoomTypingTurn> | undefined, member: string) {

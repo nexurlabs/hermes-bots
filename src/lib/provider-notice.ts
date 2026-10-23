@@ -27,9 +27,13 @@ export const PROVIDER_NOTICE_TEXT =
 /** True while the banner is shown. Non-blocking; the user can dismiss it. */
 export const $providerNotice = atom(false)
 
-/** Show the notice if `text` is Hermes's "no provider" error. */
-export function noteProviderError(text: unknown) {
-  if (isNoProviderError(text) && !$providerNotice.get()) {
-    $providerNotice.set(true)
-  }
+/**
+ * Show the notice if `text` is Hermes's "no provider" error (again, if it was dismissed). Returns
+ * true when it was that error, so the caller doesn't also post it as a red error bubble.
+ */
+export function noteProviderError(text: unknown): boolean {
+  if (!isNoProviderError(text)) return false
+  if (!$providerNotice.get()) $providerNotice.set(true)
+
+  return true
 }

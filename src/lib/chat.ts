@@ -188,6 +188,11 @@ export function runtimeFor(key: string): string | undefined {
   return sessions.get(key)?.runtime
 }
 
+/** Every running Hermes session of one bot (its 1:1 chat and its seats in groups). */
+export function liveSessionsOf(profile: string): { key: string; runtime: string }[] {
+  return [...sessions.entries()].filter(([, ref]) => ref.profile === profile && ref.runtime).map(([key, ref]) => ({ key, runtime: ref.runtime as string }))
+}
+
 /**
  * Chats that were already open don't notice a tool server registered after they started (the This PC
  * link, for one). This asks Hermes to reload tools for each open profile so they pick it up now.
@@ -451,9 +456,13 @@ export function applyEvent(messages: ChatMsg[], event: GatewayEvent, from?: stri
       msg.streaming = false
       msg.tools = (msg.tools || []).map(tool => ({ ...tool, done: true }))
 
+      if (payload.status === 'interrupted') {
+        msg.stopped = true
+      }
+
       if (failed) {
-        noteProviderError(payload.error || payload.failure_reason || finalText)
-        list.push({
+        // The "no provider" error is shown once, as the provider banner; a red bubble repeated it.
+        if (!noteProviderError(payload.error || payload.failure_reason || finalText)) list.push({
           id: newId('e'),
           role: 'error',
           text: String(payload.error || payload.failure_reason || finalText || 'The bot hit an error'),
@@ -469,8 +478,7 @@ export function applyEvent(messages: ChatMsg[], event: GatewayEvent, from?: stri
         list[at] = { ...current, streaming: false }
       }
 
-      noteProviderError(payload.message)
-      list.push({ id: newId('e'), role: 'error', text: String(payload.message || 'Something went wrong'), at: Date.now(), from })
+      if (!noteProviderError(payload.message)) list.push({ id: newId('e'), role: 'error', text: String(payload.message || 'Something went wrong'), at: Date.now(), from })
       break
     }
     default:
@@ -581,6 +589,18 @@ function patchChat(name: string, update: (state: ChatState) => ChatState) {
 
 const botKey = (name: string) => `bot:${name}`
 
+/** A reply that was still streaming when the session was reloaded and isn't in the fresh transcript. */
+export function keptPartial(before: ChatMsg[], transcript: ChatMsg[]): ChatMsg | null {
+  const last = before[before.length - 1]
+
+  if (!last || last.role !== 'assistant' || !last.streaming || !last.text.trim()) return null
+
+  const tail = transcript.filter(msg => msg.role === 'assistant').slice(-3)
+  if (tail.some(msg => msg.text.includes(last.text.trim().slice(0, 200)))) return null
+
+  return { ...last, streaming: false, stopped: true }
+}
+
 export async function loadBotChat(name: string, force = false) {
   const existing = $chats.get()[name]
 
@@ -596,6 +616,10 @@ export async function loadBotChat(name: string, force = false) {
 
     if (result.running && result.inflight?.assistant) {
       messages.push({ id: newId('s'), role: 'assistant', text: result.inflight.assistant, at: Date.now(), tools: [], streaming: true })
+    } else {
+      // Hermes restarted mid-reply: the transcript doesn't have the half-streamed text. Keep it, marked.
+      const partial = keptPartial(existing?.messages || [], messages)
+      if (partial) messages.push(partial)
     }
 
     attachBotListener(name, result.runtime)
@@ -887,6 +911,9 @@ export async function stopBot(name: string) {
   if (runtime) {
     await gateway.request('session.interrupt', { session_id: runtime, profile: name }).catch(() => undefined)
   }
+
+  // Whatever had streamed so far stays on screen, marked as stopped.
+  patchChat(name, state => ({ ...state, messages: state.messages.map(msg => (msg.role === 'assistant' && msg.streaming && msg.text.trim() ? { ...msg, stopped: true } : msg)) }))
 }
 
 // ── questions the agent asks back (approvals, clarify, secrets) ───────────
@@ -967,6 +994,7 @@ gateway.on(event => {
   }
 })
 
-import { reapplySessionModel, useRuntimeLookup } from './session-model'
+import { reapplySessionModel, useLiveSessions, useRuntimeLookup } from './session-model'
 useRuntimeLookup(runtimeFor)
+useLiveSessions(liveSessionsOf)
 
