@@ -122,3 +122,31 @@ test('after a timeout, the same serve is still waited for rather than replaced',
   const port = await localServe.waitForServe(serve, { home: homeWith(), sleep: () => new Promise(resolve => setTimeout(resolve, 1)) })
   assert.equal(port, 9100)
 })
+
+test('cancelling a serve that is still starting stops it, and its wait fails without a port', async () => {
+  const child = fakeChild()
+  let killed = 0
+  child.kill = () => {
+    killed += 1
+    child.emit('exit', null)
+  }
+  const serve = localServe.watchServe(child)
+  const pending = { child, serve, token: 't' }
+
+  const waiting = localServe.waitForServe(serve, { home: homeWith(), sleep: () => new Promise(resolve => setTimeout(resolve, 1)) })
+  localServe.cancelServe(pending)
+
+  await assert.rejects(waiting, error => !error.timedOut && /exited/.test(error.message))
+  assert.equal(pending.cancelled, true)
+  assert.equal(killed, 1)
+})
+
+test('cancelling tolerates a child that is already gone', () => {
+  const child = fakeChild()
+  child.kill = () => {
+    throw new Error('ESRCH')
+  }
+  const pending = { child, serve: localServe.watchServe(child), token: 't' }
+  assert.doesNotThrow(() => localServe.cancelServe(pending))
+  assert.equal(pending.cancelled, true)
+})
