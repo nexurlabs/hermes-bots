@@ -103,4 +103,25 @@ async function waitForServe(
   }
 }
 
-module.exports = { watchServe, waitForServe, updateInProgress, pidAlive, START_WAIT_MS, UPDATE_WAIT_MS, UPDATE_STEP }
+/**
+ * Stops a serve the person cancelled while it was still starting. Its waiter then rejects, and the start
+ * is marked cancelled so nothing gets registered on Hermes for it. A serve that is already up is not
+ * touched here: once it is ready, a cancel has nothing to stop.
+ */
+function cancelServe(pending) {
+  pending.cancelled = true
+  try {
+    pending.child.kill()
+  } catch {}
+}
+
+module.exports = {
+  watchServe,
+  waitForServe,
+  cancelServe,
+  updateInProgress,
+  pidAlive,
+  START_WAIT_MS,
+  UPDATE_WAIT_MS,
+  UPDATE_STEP
+}

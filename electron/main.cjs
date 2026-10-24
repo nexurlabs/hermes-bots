@@ -233,6 +233,8 @@ ipcMain.handle('local:start', async () => {
   try {
     port = await localServe.waitForServe(pending.serve, { home: hermesHome(), onStep: step })
   } catch (error) {
+    // Cancelled while starting: the renderer has already moved on, so this result is never shown.
+    if (pending.cancelled) throw new Error('Cancelled')
     if (error.timedOut) {
       // Still starting: keep the process, so the next Connect waits for this same one.
       // The output is logged with this launch's session token blanked out, in case Hermes echoed it.
@@ -246,6 +248,11 @@ ipcMain.handle('local:start', async () => {
     throw explainLocalStartError(error)
   }
 
+  // A cancel that landed just as the serve became ready must not register its tools on Hermes.
+  if (pending.cancelled) {
+    localServe.cancelServe(pending)
+    throw new Error('Cancelled')
+  }
   pendingLocal = null
   ownedLocal = { baseUrl: `http://127.0.0.1:${port}`, token: pending.token }
   syncThisPcMcp({ baseUrl: ownedLocal.baseUrl, hermesToken: pending.token, cfg: null }).catch(() => {})
@@ -420,6 +427,12 @@ ipcMain.handle('ssh:cancel', () => {
     try {
       child.kill()
     } catch {}
+  }
+  // A Hermes this app is starting here stops too, so Cancel never leaves one running (see local-serve.cjs).
+  if (pendingLocal) {
+    localServe.cancelServe(pendingLocal)
+    dbg('cancel requested: stopped the hermes serve that was starting')
+    pendingLocal = null
   }
   return true
 })
